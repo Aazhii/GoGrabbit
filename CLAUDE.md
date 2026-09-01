@@ -39,6 +39,15 @@ Phase 2 in the roadmap says so.
   within" and "repo" filters — plain fetch, no state library, one page,
   no routing). Verified end-to-end in a real browser against the real
   GitHub API and a real Postgres, via `docker compose up --build`.
+- Adding a repo (`POST /repos`) auto-triggers a poll immediately (see
+  `App.tsx` `handleAddRepo` → `handlePoll`) — a repo you just added is
+  never silently empty until someone remembers to hit "Poll now". Added
+  after a real user hit exactly that: added a repo, applied a date filter,
+  saw "no issues match" and assumed the GitHub search results were wrong —
+  they weren't; the repo just had zero `seen_issue` rows because it had
+  never been polled. If you add another way to create a `WatchedRepo`
+  (e.g. a future bulk-import), poll it too, immediately, don't rely on
+  Quartz's first tick.
 - `seen_issue.posted_at` (added in `V2__seen_issue_posted_at.sql`) holds
   GitHub's `created_at` for the issue — that's what `/issues/recent`'s
   `sinceDays` filters and sorts on. `labeled_at` is still populated from

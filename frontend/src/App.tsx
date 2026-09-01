@@ -66,7 +66,7 @@ export default function App() {
   async function handleAddRepo(event: React.FormEvent) {
     event.preventDefault();
     try {
-      await createRepo({
+      const created = await createRepo({
         owner: owner.trim(),
         repo: repo.trim(),
         labels: labels.split(",").map((l) => l.trim()).filter(Boolean),
@@ -75,6 +75,7 @@ export default function App() {
       setOwner("");
       setRepo("");
       await refreshRepos();
+      await handlePoll(created.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
