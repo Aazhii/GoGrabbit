@@ -1,12 +1,11 @@
 .DS_Store
 .env
 
-# Java / Gradle
-backend/build/
-backend/.gradle/
+# Java / Maven
+backend/target/
 *.class
 *.jar
-!gradle-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 
 # Node / frontend
 frontend/node_modules/

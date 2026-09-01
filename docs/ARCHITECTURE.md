@@ -186,7 +186,7 @@ frontend/src/
 ## Deployment
 
 `docker-compose.yml` with three services: `postgres`, `backend` (multi-stage
-Gradle build → `eclipse-temurin:25-jre`), `frontend` (Vite build → static
+Maven build → `eclipse-temurin:25-jre`), `frontend` (Vite build → static
 files served by nginx). Backend is a normal long-running JVM process — no
 serverless/short-timeout constraints, so Quartz's in-process scheduler works
 without extra infrastructure.

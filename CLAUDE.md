@@ -6,10 +6,11 @@ What's deliberately deferred: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Stack
 
-Java 25 + Spring Boot 4.1 (Gradle, Kotlin DSL) backend; TypeScript + React
-(Vite) frontend; PostgreSQL + Flyway; Quartz for per-repo scheduling; Docker
-Compose for local/deploy. No auth in v1 — do not add auth-shaped code
-(user tables, login, tokens-as-identity) until Phase 2 in the roadmap says so.
+Java 25 + Spring Boot 4.1 (Maven) backend; TypeScript + React (Vite)
+frontend; PostgreSQL + Flyway; Quartz for per-repo scheduling (not wired up
+yet — see status below); Docker Compose for local/deploy. No auth in v1 —
+do not add auth-shaped code (user tables, login, tokens-as-identity) until
+Phase 2 in the roadmap says so.
 
 ## Conventions
 
@@ -28,8 +29,45 @@ Compose for local/deploy. No auth in v1 — do not add auth-shaped code
   create/reschedule/remove the matching Quartz trigger — never write
   directly to the repository and leave the scheduler out of sync.
 
+## Status
+
+- **Done**: backend scaffold, `watched_repo` / `seen_issue` / `notification_channel`
+  tables (Flyway `V1__init.sql`), JPA entities + repositories, `GitHubService`
+  (search-issues-by-label via `RestClient`, rate-limit header logging),
+  `PollerService` (diff against `seen_issue`, dedupes), `RepoController`
+  (`GET/POST/PATCH/DELETE /repos`, plus `POST /repos/{id}/poll` for manual
+  testing), `IssueController` (`GET /issues/recent`).
+- **Not done yet**: Quartz scheduling (repos currently only poll via the
+  manual `/repos/{id}/poll` endpoint — nothing runs on an interval yet),
+  notification dispatch to Email/Telegram/Discord (`PollerService` just logs
+  new issues for now), `NotificationChannel` CRUD endpoints, frontend, auth
+  (Phase 2, intentionally deferred).
+- When Quartz lands: `RepoController`'s create/update/delete must start
+  going through a `SchedulerService` that also creates/reschedules/removes
+  the matching trigger, per the convention above — right now it writes
+  directly to `WatchedRepoRepository` because there's no scheduler yet.
+
 ## Build / run / test
 
-Not yet scaffolded — this section gets filled in as soon as the backend and
-frontend projects exist. Until then, treat `docs/ARCHITECTURE.md` as the
-source of truth for intended structure, not this file.
+```bash
+cd backend
+./mvnw compile        # verified working — Java 25 + Spring Boot 4.1
+./mvnw test            # needs a reachable Postgres matching db/migration — see below
+```
+
+`spring-boot-starter-parent` in `pom.xml` must be a real published version,
+e.g. `4.1.1` — **not** `4.1.1.RELEASE`. `start.spring.io`'s metadata
+endpoint returns the latter as a version `id`, but that exact string was
+never published to Maven Central; it 404s. Confirm against
+`https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml`
+before bumping the Boot version.
+
+Full stack, including a real (Postgres 17) database:
+
+```bash
+docker compose up --build
+```
+
+- API: http://localhost:8080 — try `POST /repos` then `POST /repos/{id}/poll`
+- Health: http://localhost:8080/actuator/health
+

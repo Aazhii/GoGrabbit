@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: gograbbit
+      POSTGRES_USER: ${DATABASE_USERNAME:-gograbbit}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-gograbbit}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - gograbbit-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-gograbbit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/gograbbit
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-gograbbit}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-gograbbit}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  gograbbit-postgres-data:

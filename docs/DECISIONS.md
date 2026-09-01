@@ -15,11 +15,18 @@ current (2026-09) compatibility info, not assumed.
   three notification channels) without the thread-pool tuning a
   platform-thread model would need.
 
-## Build tool: Gradle (Kotlin DSL)
+## Build tool: Maven (switched from the originally planned Gradle)
 
-- Incremental compilation and build caching matter more here than Maven's
-  simplicity, given the "fast" requirement extends to the dev loop, not
-  just the running service.
+- Originally planned Gradle (Kotlin DSL) for faster incremental builds.
+  In practice, `start.spring.io`'s Gradle project generator was returning
+  a 500 (`gradleBuild` bean creation failure) for every combination tried
+  as of 2026-09, and there was no local Docker daemon available in this
+  environment to bootstrap a Gradle wrapper another way (no vendored
+  wrapper jar to hand-write safely). Maven generation worked cleanly and
+  its wrapper (`mvnw`) is plain scripts + a properties file — nothing
+  binary to get right by hand. Reliably getting a working build beats the
+  marginal dev-loop speed difference. Revisit if Gradle generation gets
+  fixed upstream and the team wants the swap.
 
 ## Scheduling: Quartz, not `@Scheduled` / a hand-rolled `ThreadPoolTaskScheduler`
 
