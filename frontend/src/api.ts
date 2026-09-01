@@ -10,7 +10,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`${init?.method ?? "GET"} ${path} failed: ${response.status} ${body}`);
+    let message = body;
+    try {
+      message = JSON.parse(body).message ?? body;
+    } catch {
+      // not JSON — fall back to raw body
+    }
+    throw new Error(`(${response.status}) ${message}`);
   }
 
   if (response.status === 204) {
@@ -41,6 +47,18 @@ export function pollRepo(id: string): Promise<{ newIssuesFound: number }> {
   return request(`/repos/${id}/poll`, { method: "POST" });
 }
 
-export function listRecentIssues(): Promise<SeenIssue[]> {
-  return request("/issues/recent");
+export interface IssueFilters {
+  sinceDays?: number;
+  owner?: string;
+  repo?: string;
+}
+
+export function listRecentIssues(filters: IssueFilters = {}): Promise<SeenIssue[]> {
+  const params = new URLSearchParams();
+  if (filters.sinceDays != null) params.set("sinceDays", String(filters.sinceDays));
+  if (filters.owner) params.set("owner", filters.owner);
+  if (filters.repo) params.set("repo", filters.repo);
+
+  const query = params.toString();
+  return request(`/issues/recent${query ? `?${query}` : ""}`);
 }

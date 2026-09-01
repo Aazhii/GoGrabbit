@@ -128,6 +128,7 @@ create table seen_issue (
     title           text not null,
     url             text not null,
     labeled_at      timestamptz not null,
+    posted_at       timestamptz not null,  -- GitHub issue's created_at; added in V2, what "posted N days ago" filters on
     notified_at     timestamptz not null default now(),
     unique (github_issue_id, watched_repo_id)
 );
@@ -185,7 +186,7 @@ management or Quartz-driven live updates land.
 | POST   | `/repos`         | Add a repo `{owner, repo, labels, intervalMinutes}`       |
 | PATCH  | `/repos/{id}`    | Update labels/interval/active (reschedules Quartz trigger) |
 | DELETE | `/repos/{id}`    | Stop watching a repo (removes trigger)                     |
-| GET    | `/issues/recent` | Recently notified issues (history feed)                    |
+| GET    | `/issues/recent` | Issues, filterable by `sinceDays`, `owner`, `repo`, `limit`, sorted by `postedAt desc` |
 | GET    | `/channels`      | List notification channels                                 |
 | POST   | `/channels`      | Add a channel `{type, target}`                              |
 | DELETE | `/channels/{id}` | Remove a channel                                             |

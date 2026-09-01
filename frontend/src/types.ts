@@ -14,6 +14,7 @@ export interface SeenIssue {
   repo: string;
   title: string;
   url: string;
+  postedAt: string;
   labeledAt: string;
   notifiedAt: string;
 }

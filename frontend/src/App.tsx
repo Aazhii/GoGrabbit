@@ -2,6 +2,19 @@ import { useEffect, useState } from "react";
 import { createRepo, deleteRepo, listRecentIssues, listRepos, pollRepo } from "./api";
 import type { SeenIssue, WatchedRepo } from "./types";
 
+const SINCE_DAYS_OPTIONS = [
+  { label: "Any time", value: "" },
+  { label: "Last 24 hours", value: "1" },
+  { label: "Last 3 days", value: "3" },
+  { label: "Last 7 days", value: "7" },
+  { label: "Last 14 days", value: "14" },
+  { label: "Last 30 days", value: "30" },
+];
+
+function repoKey(r: { owner: string; repo: string }) {
+  return `${r.owner}/${r.repo}`;
+}
+
 export default function App() {
   const [repos, setRepos] = useState<WatchedRepo[]>([]);
   const [issues, setIssues] = useState<SeenIssue[]>([]);
@@ -14,11 +27,28 @@ export default function App() {
   const [labels, setLabels] = useState("good first issue");
   const [intervalMinutes, setIntervalMinutes] = useState(30);
 
-  async function refresh() {
+  const [sinceDaysFilter, setSinceDaysFilter] = useState("");
+  const [repoFilter, setRepoFilter] = useState("");
+
+  async function refreshRepos() {
     try {
-      const [repoList, issueList] = await Promise.all([listRepos(), listRecentIssues()]);
-      setRepos(repoList);
-      setIssues(issueList);
+      setRepos(await listRepos());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function refreshIssues() {
+    try {
+      const [filterOwner, filterRepo] = repoFilter ? repoFilter.split("/") : [undefined, undefined];
+      setIssues(
+        await listRecentIssues({
+          sinceDays: sinceDaysFilter ? Number(sinceDaysFilter) : undefined,
+          owner: filterOwner,
+          repo: filterRepo,
+        }),
+      );
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -26,8 +56,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    refresh();
+    refreshRepos();
   }, []);
+
+  useEffect(() => {
+    refreshIssues();
+  }, [sinceDaysFilter, repoFilter]);
 
   async function handleAddRepo(event: React.FormEvent) {
     event.preventDefault();
@@ -40,7 +74,7 @@ export default function App() {
       });
       setOwner("");
       setRepo("");
-      await refresh();
+      await refreshRepos();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -49,7 +83,7 @@ export default function App() {
   async function handleDelete(id: string) {
     try {
       await deleteRepo(id);
-      await refresh();
+      await Promise.all([refreshRepos(), refreshIssues()]);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -60,7 +94,7 @@ export default function App() {
     setPollResult(null);
     try {
       const result = await pollRepo(id);
-      await refresh();
+      await refreshIssues();
       setPollResult(`Found ${result.newIssuesFound} new issue(s).`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -113,7 +147,7 @@ export default function App() {
                 <tr key={r.id}>
                   <td>
                     <a href={`https://github.com/${r.owner}/${r.repo}`} target="_blank" rel="noreferrer">
-                      {r.owner}/{r.repo}
+                      {repoKey(r)}
                     </a>
                   </td>
                   <td>{r.labels.join(", ")}</td>
@@ -134,9 +168,37 @@ export default function App() {
       </section>
 
       <section>
-        <h2>Recently notified issues</h2>
+        <h2>Issues</h2>
+        <div className="filter-bar">
+          <label>
+            Posted within
+            <select value={sinceDaysFilter} onChange={(e) => setSinceDaysFilter(e.target.value)}>
+              {SINCE_DAYS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Repo
+            <select value={repoFilter} onChange={(e) => setRepoFilter(e.target.value)}>
+              <option value="">All repos</option>
+              {repos.map((r) => (
+                <option key={r.id} value={repoKey(r)}>
+                  {repoKey(r)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         {issues.length === 0 ? (
-          <p className="empty">Nothing found yet — add a repo and hit "Poll now".</p>
+          <p className="empty">
+            {sinceDaysFilter || repoFilter
+              ? "No issues match these filters."
+              : "Nothing found yet — add a repo and hit \"Poll now\"."}
+          </p>
         ) : (
           <ul className="issue-list">
             {issues.map((issue) => (
@@ -145,7 +207,8 @@ export default function App() {
                   {issue.title}
                 </a>
                 <span className="meta">
-                  {issue.owner}/{issue.repo} · {new Date(issue.notifiedAt).toLocaleString()}
+                  {issue.owner}/{issue.repo} · posted {new Date(issue.postedAt).toLocaleDateString()} · notified{" "}
+                  {new Date(issue.notifiedAt).toLocaleString()}
                 </span>
               </li>
             ))}

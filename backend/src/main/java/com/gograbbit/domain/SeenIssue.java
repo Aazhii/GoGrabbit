@@ -40,18 +40,22 @@ public class SeenIssue {
     @Column(name = "labeled_at", nullable = false)
     private Instant labeledAt;
 
+    @Column(name = "posted_at", nullable = false)
+    private Instant postedAt;
+
     @Column(name = "notified_at", nullable = false)
     private Instant notifiedAt = Instant.now();
 
     protected SeenIssue() {
     }
 
-    public SeenIssue(long githubIssueId, WatchedRepo watchedRepo, String title, String url, Instant labeledAt) {
+    public SeenIssue(long githubIssueId, WatchedRepo watchedRepo, String title, String url, Instant labeledAt, Instant postedAt) {
         this.githubIssueId = githubIssueId;
         this.watchedRepo = watchedRepo;
         this.title = title;
         this.url = url;
         this.labeledAt = labeledAt;
+        this.postedAt = postedAt;
     }
 
     public UUID getId() {
@@ -76,6 +80,10 @@ public class SeenIssue {
 
     public Instant getLabeledAt() {
         return labeledAt;
+    }
+
+    public Instant getPostedAt() {
+        return postedAt;
     }
 
     public Instant getNotifiedAt() {

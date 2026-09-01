@@ -33,11 +33,22 @@ Phase 2 in the roadmap says so.
 
 - **Done**: backend (tables, `GitHubService`, `PollerService`, `/repos` +
   `/issues/recent` REST endpoints, CORS via `WebConfig`, upstream-error
-  mapping to 502 in `GlobalExceptionHandler`) and a simple frontend
-  dashboard (`frontend/`: add/list/remove watched repos, manual poll
-  button, recent-issues feed — plain fetch, no state library, one page,
+  mapping to 502 in `GlobalExceptionHandler`, 409 on duplicate
+  owner/repo) and a simple frontend dashboard (`frontend/`: add/list/remove
+  watched repos, manual poll button, recent-issues feed with "posted
+  within" and "repo" filters — plain fetch, no state library, one page,
   no routing). Verified end-to-end in a real browser against the real
   GitHub API and a real Postgres, via `docker compose up --build`.
+- `seen_issue.posted_at` (added in `V2__seen_issue_posted_at.sql`) holds
+  GitHub's `created_at` for the issue — that's what `/issues/recent`'s
+  `sinceDays` filters and sorts on. `labeled_at` is still populated from
+  `updated_at` and is a separate, looser signal — don't conflate the two.
+- `SeenIssueRepository.search`'s optional-filter JPQL casts every
+  null-checked parameter (`cast(:x as ...)`) — Postgres's JDBC driver can't
+  infer a bind parameter's type from an `is null` check alone (each
+  occurrence of a named JPQL parameter becomes its own untyped `$n`), and
+  drops the whole query with "could not determine data type of parameter"
+  without the cast. Keep this pattern for any future optional-filter query.
 - **Not done yet**: Quartz scheduling (repos currently only poll via the
   manual `/repos/{id}/poll` endpoint / the dashboard's "Poll now" button —
   nothing runs on an interval yet), notification dispatch to

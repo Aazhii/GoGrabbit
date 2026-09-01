@@ -34,7 +34,8 @@ public class PollerService {
                 continue;
             }
 
-            SeenIssue seenIssue = new SeenIssue(issue.id(), watchedRepo, issue.title(), issue.htmlUrl(), issue.updatedAt());
+            SeenIssue seenIssue = new SeenIssue(
+                    issue.id(), watchedRepo, issue.title(), issue.htmlUrl(), issue.updatedAt(), issue.createdAt());
             seenIssueRepository.save(seenIssue);
             newCount++;
 

@@ -11,6 +11,7 @@ public record SeenIssueResponse(
         String repo,
         String title,
         String url,
+        Instant postedAt,
         Instant labeledAt,
         Instant notifiedAt
 ) {
@@ -21,6 +22,7 @@ public record SeenIssueResponse(
                 seenIssue.getWatchedRepo().getRepo(),
                 seenIssue.getTitle(),
                 seenIssue.getUrl(),
+                seenIssue.getPostedAt(),
                 seenIssue.getLabeledAt(),
                 seenIssue.getNotifiedAt()
         );

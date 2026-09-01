@@ -68,6 +68,25 @@ button.danger {
   color: #c0392b;
 }
 
+.filter-bar {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-bar label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: #555;
+  gap: 0.25rem;
+}
+
+.filter-bar select {
+  padding: 0.35rem;
+  font-size: 0.95rem;
+}
+
 .issue-list {
   list-style: none;
   padding: 0;
