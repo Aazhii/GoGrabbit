@@ -31,21 +31,30 @@ Phase 2 in the roadmap says so.
 
 ## Status
 
-- **Done**: backend scaffold, `watched_repo` / `seen_issue` / `notification_channel`
-  tables (Flyway `V1__init.sql`), JPA entities + repositories, `GitHubService`
-  (search-issues-by-label via `RestClient`, rate-limit header logging),
-  `PollerService` (diff against `seen_issue`, dedupes), `RepoController`
-  (`GET/POST/PATCH/DELETE /repos`, plus `POST /repos/{id}/poll` for manual
-  testing), `IssueController` (`GET /issues/recent`).
+- **Done**: backend (tables, `GitHubService`, `PollerService`, `/repos` +
+  `/issues/recent` REST endpoints, CORS via `WebConfig`, upstream-error
+  mapping to 502 in `GlobalExceptionHandler`) and a simple frontend
+  dashboard (`frontend/`: add/list/remove watched repos, manual poll
+  button, recent-issues feed — plain fetch, no state library, one page,
+  no routing). Verified end-to-end in a real browser against the real
+  GitHub API and a real Postgres, via `docker compose up --build`.
 - **Not done yet**: Quartz scheduling (repos currently only poll via the
-  manual `/repos/{id}/poll` endpoint — nothing runs on an interval yet),
-  notification dispatch to Email/Telegram/Discord (`PollerService` just logs
-  new issues for now), `NotificationChannel` CRUD endpoints, frontend, auth
-  (Phase 2, intentionally deferred).
+  manual `/repos/{id}/poll` endpoint / the dashboard's "Poll now" button —
+  nothing runs on an interval yet), notification dispatch to
+  Email/Telegram/Discord (`PollerService` just logs new issues for now),
+  `NotificationChannel` CRUD (backend or UI), auth (Phase 2, intentionally
+  deferred).
 - When Quartz lands: `RepoController`'s create/update/delete must start
   going through a `SchedulerService` that also creates/reschedules/removes
   the matching trigger, per the convention above — right now it writes
   directly to `WatchedRepoRepository` because there's no scheduler yet.
+- GitHub's Search API requires an explicit `is:issue` qualifier and does
+  **not** resolve renamed repos (e.g. `facebook/react` → `react/react`) —
+  `GitHubService` sends `is:issue`; a stale owner/repo name will 502 with a
+  GitHub-forwarded message rather than silently returning nothing.
+- Frontend never calls `window.alert`/`confirm`/`prompt` — those block the
+  page (and break browser automation tooling). Poll results and errors are
+  shown inline (`pollResult` / `error` state in `App.tsx`) instead.
 
 ## Build / run / test
 
@@ -62,12 +71,27 @@ never published to Maven Central; it 404s. Confirm against
 `https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml`
 before bumping the Boot version.
 
-Full stack, including a real (Postgres 17) database:
+Full stack, including a real (Postgres 17) database and the frontend:
 
 ```bash
 docker compose up --build
 ```
 
+- Dashboard: http://localhost:3000
 - API: http://localhost:8080 — try `POST /repos` then `POST /repos/{id}/poll`
 - Health: http://localhost:8080/actuator/health
+
+Postgres publishes on host port 5433, not 5432 — set via `POSTGRES_HOST_PORT`
+in `docker-compose.yml`; changed because this machine already had an
+unrelated local Postgres bound to 5432. The backend always talks to the
+`postgres` service over the internal Docker network on 5432 regardless.
+
+Frontend alone, with hot reload:
+
+```bash
+cd frontend
+npm install
+npm run build   # type-checks (tsc -b) then builds — verified working
+npm run dev     # http://localhost:5173, reads VITE_API_BASE_URL (see .env.example)
+```
 

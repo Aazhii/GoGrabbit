@@ -29,6 +29,10 @@ github:
   token: ${GITHUB_TOKEN:}
   rate-limit-warn-threshold: 100
 
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+
 logging:
   level:
     com.gograbbit: INFO

@@ -163,11 +163,19 @@ backend/src/main/java/com/gograbbit/
 
 ```
 frontend/src/
-├── pages/            # Repos, Channels, RecentIssues
-├── components/        # shared UI (table, form, badge, toast)
-├── api/                # typed fetch client + TanStack Query hooks
+├── api.ts        # thin fetch wrapper — one function per endpoint
+├── types.ts       # WatchedRepo, SeenIssue (mirror the response DTOs)
+├── App.tsx         # everything: add-repo form, watched-repo table, recent-issues feed
 └── main.tsx
 ```
+
+Deliberately one file, one page, no router, no state/query library — v1
+has three views' worth of content and one person's workflow (add a repo,
+poll it, see what it found). `useState` + a manual `refresh()` after each
+mutation is enough. Split `App.tsx` into `pages/`/`components/` (and
+consider TanStack Query for caching) once there's more than one screen's
+worth of interaction to justify it — e.g. once `NotificationChannel`
+management or Quartz-driven live updates land.
 
 ## API (v1, no auth)
 

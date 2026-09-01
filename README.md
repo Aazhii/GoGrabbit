@@ -24,17 +24,31 @@ original Node.js/TypeScript sketch this project started from.
 
 ## Status
 
-Planning phase — no code has been scaffolded yet. This repo currently holds
-the architecture, schema, and setup plan; implementation starts once the plan
-in `docs/ARCHITECTURE.md` is approved.
+Backend (tables, GitHub API integration, repos/issues REST endpoints) and a
+simple frontend dashboard are working end-to-end. Not yet built: automatic
+scheduling (Quartz — polling is manual via a button for now), notification
+dispatch (Email/Telegram/Discord), auth. See `CLAUDE.md` for the detailed
+status and `docs/ROADMAP.md` for what's next.
 
-## Quick start (once scaffolded)
+## Quick start
 
 ```bash
-cp .env.example .env      # fill in GITHUB_TOKEN, notification credentials
+cp .env.example .env      # optionally fill in GITHUB_TOKEN
 docker compose up --build
 ```
 
+- Frontend dashboard: http://localhost:3000
 - Backend API: http://localhost:8080
-- Frontend dashboard: http://localhost:5173 (dev) / http://localhost:3000 (docker)
 - Health check: http://localhost:8080/actuator/health
+
+Postgres is published on host port 5433 (not the default 5432) to avoid
+clashing with any Postgres already running on your machine.
+
+For frontend development with hot reload instead of the built Docker image:
+
+```bash
+cd frontend
+cp .env.example .env      # VITE_API_BASE_URL, defaults to http://localhost:8080
+npm install
+npm run dev               # http://localhost:5173
+```
