@@ -15,7 +15,53 @@ Goals, in order: **correct** (no duplicate/missed notifications) → **fast**
 **reliable** (survives restarts, a slow/broken notification channel doesn't
 block others or lose scheduling state).
 
-## High-level flow
+## High-level flow — issue search (Phase 1, primary path)
+
+Issue-first discovery: the user searches GitHub issues directly across all
+repositories, instead of adding repos one at a time and hoping they contain
+something to work on. This path is **stateless** — it touches no database
+table at all.
+
+```
+ ┌────────────────────┐        ┌─────────────────────────┐
+ │   React SearchForm  │◀──────▶│  IssueSearchController   │  GET /issues/search
+ │  (labels, repo,     │  JSON  │  (validate + clamp)      │  no auth (v1)
+ │   created, sort)    │        └──────────┬──────────────┘
+ └────────────────────┘                    ▼
+                                ┌──────────────────────────┐
+                                │   IssueSearchService      │  maps + drops PRs,
+                                │                            │  computes paging
+                                └──────────┬───────────────┘
+                                            ▼
+                                ┌──────────────────────────┐
+                                │  GitHubSearchQueryBuilder │  pure: filters → the
+                                │                            │  GitHub `q` string
+                                └──────────┬───────────────┘
+                                            ▼
+                                ┌──────────────────────────┐
+                                │  GitHubService.searchIssues│ ← the adapter seam
+                                │  (RestClient, retry,       │
+                                │   rate-limit aware)        │
+                                └──────────┬───────────────┘
+                                            ▼
+                                   GitHub REST /search/issues
+```
+
+`GitHubService` is the single outbound seam. The repo-watch path below and
+this search path both go through it, which is where a future watch/trigger
+system plugs in — no scheduler, queue, or worker exists or is needed for
+Phase 1.
+
+Deliberately absent from this path: no persistence, no caching layer, no
+background refresh. A search is one synchronous request to GitHub. See
+`docs/ROADMAP.md` for what is deferred and why.
+
+## High-level flow — repo watch path (partially built)
+
+> Note: the Quartz scheduler in this diagram **does not exist yet** — there is
+> no Quartz dependency, no `scheduler/` package and no `QRTZ_*` migration.
+> Repos poll only via the manual `POST /repos/{id}/poll` endpoint. See the
+> status notes in `CLAUDE.md`.
 
 ```
  ┌────────────────────┐        ┌─────────────────────┐
@@ -38,9 +84,9 @@ block others or lose scheduling state).
                                             ▼
                                 ┌───────────────────────┐
                                 │    GitHubService        │  RestClient,
-                                │  (search issues by      │  Resilience4j
-                                │   label, rate-limit      │  retry/backoff
-                                │   aware)                 │
+                                │  (search issues by      │  executeWithRetry
+                                │   label, rate-limit      │  (hand-rolled,
+                                │   aware)                 │   see DECISIONS)
                                 └──────────┬─────────────┘
                                             ▼
                                 ┌───────────────────────┐
@@ -100,12 +146,33 @@ over the source design, not just a language port.
 
 ## Rate limiting & resilience
 
+- **The search bucket is per-minute, and separate from the general REST
+  budget**: 10 requests/min unauthenticated, 30/min authenticated. This is
+  *not* the 60/hr vs 5000/hr figure quoted in `.env.example`, which governs
+  non-search endpoints. Every issue search — including every filter change
+  in the UI — spends one request from that per-minute bucket, so setting
+  `GITHUB_TOKEN` matters far more here than for polling.
 - `GitHubService` reads `x-ratelimit-remaining` / `x-ratelimit-reset` off
-  every response; below a low-water mark it logs a warning and skips that
-  cycle's remaining lookups rather than burning the budget to zero.
-- Resilience4j wraps outbound calls (GitHub search, each notification
-  channel) with retry + exponential backoff; a circuit breaker per
-  notification channel type prevents hammering a channel that's down.
+  every response; below a low-water mark it logs a warning. The threshold
+  scales off `x-ratelimit-limit` rather than using the raw configured
+  value, because a fixed threshold of 100 would warn on every single search
+  call against a bucket of 10–30.
+- GitHub answers a rate-limited caller with 403/429; `GlobalExceptionHandler`
+  maps that to **HTTP 429** with a `Retry-After` header and an explanatory
+  message, rather than burying it in the generic 502 upstream mapping. The
+  UI surfaces this as its own error state.
+- The GitHub `RestClient` sets explicit connect (5s) and read (15s)
+  timeouts via `github.connect-timeout` / `github.read-timeout`. Without
+  them a hung request had no bound at all, and `executeWithRetry` would
+  retry it three times over.
+- `GitHubService.executeWithRetry` wraps the search call with a small
+  built-in retry (3 attempts, exponential backoff starting at 300ms) on
+  transient failures (`ResourceAccessException`, 5xx) — not Resilience4j;
+  see `docs/DECISIONS.md` for why. 4xx failures (bad query, unknown repo,
+  auth) aren't retried since a retry can't fix them. Notification-channel
+  resilience (retry, circuit breaker per channel) is deferred until those
+  channels are implemented — multiple call sites is when a library like
+  Resilience4j starts to pay for itself over hand-rolled retry.
 
 ## Data model (Postgres, via Flyway)
 
@@ -151,32 +218,44 @@ run as its own Flyway migration.
 
 ```
 backend/src/main/java/com/gograbbit/
-├── config/          # SchedulerConfig, RestClientConfig, virtual-thread executor bean
-├── controller/       # RepoController, ChannelController, IssueController
+├── config/          # GitHubClientConfig (RestClient + timeouts), WebConfig (CORS)
+├── controller/       # IssueSearchController, RepoController, IssueController,
+│                      #   GlobalExceptionHandler
 ├── domain/           # WatchedRepo, SeenIssue, NotificationChannel (JPA entities)
 ├── repository/       # Spring Data JPA repositories
-├── service/          # PollerService, GitHubService, NotificationDispatchService
-├── notification/     # EmailNotifier, TelegramNotifier, DiscordNotifier (+ shared interface)
-├── scheduler/         # SchedulerService, PollRepoJob (Quartz Job)
+├── service/          # GitHubService, GitHubSearchQueryBuilder, IssueSearchService,
+│                      #   PollerService
 ├── dto/               # request/response records + validation
 └── GoGrabbitApplication.java
+
+Not yet built (documented elsewhere in this file as the target design):
+  notification/  — EmailNotifier / TelegramNotifier / DiscordNotifier
+  scheduler/     — SchedulerService, PollRepoJob (Quartz)
+  ChannelController + /channels endpoints
 ```
 
 ```
 frontend/src/
-├── api.ts        # thin fetch wrapper — one function per endpoint
-├── types.ts       # WatchedRepo, SeenIssue (mirror the response DTOs)
-├── App.tsx         # everything: add-repo form, watched-repo table, recent-issues feed
+├── api.ts          # thin fetch wrapper — one function per endpoint
+├── types.ts         # WatchedRepo, SeenIssue, IssueSearchResult/Response
+├── App.tsx           # tab shell: Search (default) | Watch
+├── components/      # SearchForm, IssueCard, Pagination, SearchResults,
+│                     #   Spinner, EmptyState, ErrorNotice, WatchTab
+├── hooks/            # useIssueSearch (abort + run-id guarded)
+├── lib/               # relativeTime, labelColor, errors, searchForm
 └── main.tsx
 ```
 
-Deliberately one file, one page, no router, no state/query library — v1
-has three views' worth of content and one person's workflow (add a repo,
-poll it, see what it found). `useState` + a manual `refresh()` after each
-mutation is enough. Split `App.tsx` into `pages/`/`components/` (and
-consider TanStack Query for caching) once there's more than one screen's
-worth of interaction to justify it — e.g. once `NotificationChannel`
-management or Quartz-driven live updates land.
+Still no router and no state/query library — tabs are a `useState`, and
+there are exactly two of them. `App.tsx` was split into `components/` once
+issue search landed, because a search form + result cards + pagination +
+loading/error/empty states is more than one screen's worth of interaction.
+
+Server-state caching is still manual. `useIssueSearch` owns `loading` /
+`error` / `data` and cancels a superseded request with an `AbortController`
+plus a monotonic run-id, so a slow earlier response cannot overwrite a
+newer one. Revisit TanStack Query if saved searches or background refresh
+land (Phase 2) — not before.
 
 ## API (v1, no auth)
 
@@ -186,7 +265,9 @@ management or Quartz-driven live updates land.
 | POST   | `/repos`         | Add a repo `{owner, repo, labels, intervalMinutes}`       |
 | PATCH  | `/repos/{id}`    | Update labels/interval/active (reschedules Quartz trigger) |
 | DELETE | `/repos/{id}`    | Stop watching a repo (removes trigger)                     |
-| GET    | `/issues/recent` | Issues, filterable by `sinceDays`, `owner`, `repo`, `limit`, sorted by `postedAt desc` |
+| GET    | `/issues/search` | **Phase 1 primary.** Live GitHub issue search. Params: `q`, `labels`, `state`, `owner`, `repo`, `createdWithinDays`, `createdFrom`, `createdTo`, `sort`, `order`, `page`, `perPage`. Stateless — hits GitHub, stores nothing |
+| POST   | `/repos/{id}/poll` | Poll one watched repo now (currently the only way anything polls) |
+| GET    | `/issues/recent` | Issues *already seen by a poll*, from the `seen_issue` table — filterable by `sinceDays`, `owner`, `repo`, `limit`, sorted by `postedAt desc`. Not a GitHub search |
 | GET    | `/channels`      | List notification channels                                 |
 | POST   | `/channels`      | Add a channel `{type, target}`                              |
 | DELETE | `/channels/{id}` | Remove a channel                                             |
@@ -202,6 +283,13 @@ without extra infrastructure.
 
 ## Testing
 
-JUnit 5 + Testcontainers (real Postgres, real Quartz JDBC store) for
-integration tests; WireMock to stand in for the GitHub API and notification
-webhooks so tests don't hit real external services.
+**Current state**: JUnit 5 only. `GitHubSearchQueryBuilderTest` (25 tests)
+and `IssueSearchServiceTest` (9) cover filter→query translation and
+response mapping/PR-filtering as pure unit tests — no Spring context, no
+Postgres, no network. `GitHubServiceTest` (3) covers the retry policy.
+`GoGrabbitApplicationTests.contextLoads` is a `@SpringBootTest` and is the
+one test that needs a reachable Postgres.
+
+**Target** (not yet added — neither is in `pom.xml`): Testcontainers for a
+real Postgres, and WireMock to stand in for the GitHub API so tests never
+hit the real service.

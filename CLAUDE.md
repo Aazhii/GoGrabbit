@@ -31,14 +31,20 @@ Phase 2 in the roadmap says so.
 
 ## Status
 
-- **Done**: backend (tables, `GitHubService`, `PollerService`, `/repos` +
-  `/issues/recent` REST endpoints, CORS via `WebConfig`, upstream-error
-  mapping to 502 in `GlobalExceptionHandler`, 409 on duplicate
-  owner/repo) and a simple frontend dashboard (`frontend/`: add/list/remove
-  watched repos, manual poll button, recent-issues feed with "posted
-  within" and "repo" filters — plain fetch, no state library, one page,
-  no routing). Verified end-to-end in a real browser against the real
-  GitHub API and a real Postgres, via `docker compose up --build`.
+- **Done — Phase 1 issue search (the primary feature)**: `GET /issues/search`
+  is a stateless live GitHub issue search —
+  `IssueSearchController` → `IssueSearchService` → `GitHubSearchQueryBuilder`
+  → `GitHubService.searchIssues`. Filters: free text, labels (OR'd in one
+  `label:` qualifier), state, `owner`/`repo`, `createdWithinDays` or a
+  `createdFrom`/`createdTo` range, sort (`created|updated|comments|bestmatch`),
+  order, page/perPage. **It stores nothing** — no table, no cache. The
+  frontend is now a two-tab app (`components/`, `hooks/useIssueSearch`,
+  `lib/`) with Search as the default tab.
+- **Done — repo watch (pre-existing, still works)**: tables, `PollerService`,
+  `/repos` + `/issues/recent`, CORS via `WebConfig`, 502 upstream mapping and
+  409 on duplicate owner/repo. Now lives behind the "Watch" tab. Note
+  `/issues/recent` reads the `seen_issue` table and does **not** call GitHub —
+  don't confuse it with `/issues/search`.
 - Adding a repo (`POST /repos`) auto-triggers a poll immediately (see
   `App.tsx` `handleAddRepo` → `handlePoll`) — a repo you just added is
   never silently empty until someone remembers to hit "Poll now". Added
@@ -72,9 +78,32 @@ Phase 2 in the roadmap says so.
   **not** resolve renamed repos (e.g. `facebook/react` → `react/react`) —
   `GitHubService` sends `is:issue`; a stale owner/repo name will 502 with a
   GitHub-forwarded message rather than silently returning nothing.
+- **Search rate limits are per MINUTE and a separate bucket: 10/min
+  unauthenticated, 30/min with a token.** This is not the 60/hr vs 5000/hr
+  figure in `.env.example`, which covers non-search endpoints. Every UI
+  search spends one request. GitHub 403/429 maps to HTTP 429 with
+  `Retry-After`, not the generic 502.
+- **Only 1,000 results are reachable** per search (`per_page` 100 × 10
+  pages; beyond that GitHub 422s), even when `total_count` is far larger.
+  The backend rejects `page * perPage > 1000` with a 400, and the UI says
+  so rather than faking a page count.
+- Advanced search became GitHub's default on 2025-09-04; `searchIssues`
+  sends `advanced_search=true` explicitly to pin the semantics. Under it, a
+  space between multiple `repo:`/`org:`/`user:` qualifiers means **AND**,
+  not OR — a future multi-repo single-query optimisation would silently
+  return zero rows without an explicit `OR`.
+- Every PR is also an issue. `is:issue` is sent *and* items with a non-null
+  `pull_request` are dropped in `IssueSearchService` — belt and braces.
+- `order` is ignored by GitHub unless `sort` is also sent; `sort=bestmatch`
+  means omit both.
+- There is **no official GitHub SDK for Java** (Octokit is JS/Ruby/.NET/
+  Terraform only; `org.kohsuke:github-api` is community). Calling REST
+  directly from `GitHubService` is the officially supported path — don't
+  "upgrade" it to an SDK expecting something more official.
 - Frontend never calls `window.alert`/`confirm`/`prompt` — those block the
   page (and break browser automation tooling). Poll results and errors are
-  shown inline (`pollResult` / `error` state in `App.tsx`) instead.
+  shown inline (`pollResult` / `error` state in `WatchTab.tsx`, and
+  `ErrorNotice` for search) instead.
 
 ## Build / run / test
 
