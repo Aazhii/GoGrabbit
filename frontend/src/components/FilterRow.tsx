@@ -1,7 +1,7 @@
 import { useId, useMemo, useRef } from "react";
 import QualifierValueEditor from "./QualifierControl";
 import {
-  COMPARATORS,
+  comparatorsFor,
   effectiveJoin,
   isListKind,
   joinIsFixed,
@@ -101,10 +101,16 @@ export default function FilterRow({
             <select
               id={`${baseId}-op`}
               className="fb-select fb-select-op"
-              value={value.comparator}
+              /* A comparator the kind does not offer (a date window left on a
+                 numeric row) would render blank; fall back to a valid one. */
+              value={
+                comparatorsFor(qualifier.kind).some((c) => c.value === value.comparator)
+                  ? value.comparator
+                  : "gte"
+              }
               onChange={(e) => onChange({ comparator: e.target.value as Comparator })}
             >
-              {COMPARATORS.map((option) => (
+              {comparatorsFor(qualifier.kind).map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

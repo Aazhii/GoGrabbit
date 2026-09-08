@@ -54,6 +54,17 @@ export const RELATIVE_WINDOWS: { value: string; label: string; days: number }[] 
   { value: "365", label: "year", days: 365 },
 ];
 
+/**
+ * "in the last" is only meaningful for dates — a count like good-first-issues
+ * has no relative window, and offering one produced `good-first-issues:>=2026-09-01`,
+ * which GitHub rejects.
+ */
+export function comparatorsFor(kind: string) {
+  return kind === "DATE_RANGE"
+    ? COMPARATORS
+    : COMPARATORS.filter((c) => c.value !== "within");
+}
+
 /** Date filters open on a relative window; everything else on "at least". */
 export function defaultComparator(kind: string): Comparator {
   return kind === "DATE_RANGE" ? "within" : "gte";
@@ -149,9 +160,10 @@ function cleanList(value: QualifierValue): string[] {
   return out;
 }
 
-function serializeRange(value: QualifierValue): string | null {
+function serializeRange(value: QualifierValue, kind: string): string | null {
   switch (value.comparator) {
     case "within": {
+      if (kind !== "DATE_RANGE") return null;
       const days = Number(value.from.trim() || value.text.trim());
       if (!Number.isFinite(days) || days <= 0) return null;
       const since = new Date(Date.now() - days * 86_400_000);
@@ -213,7 +225,7 @@ export function emitQualifier(
 
     case "NUMBER_RANGE":
     case "DATE_RANGE": {
-      const range = serializeRange(value);
+      const range = serializeRange(value, qualifier.kind);
       return range ? { param: range, qParts: [] } : NOTHING;
     }
 
@@ -319,7 +331,7 @@ export function describeQualifier(
   }
 
   if (qualifier.kind === "NUMBER_RANGE" || qualifier.kind === "DATE_RANGE") {
-    return `${qualifier.label}: ${serializeRange(value)}`;
+    return `${qualifier.label}: ${serializeRange(value, qualifier.kind)}`;
   }
 
   return `${qualifier.label}: ${not}${value.text.trim()}`;
