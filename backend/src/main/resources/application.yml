@@ -28,6 +28,10 @@ github:
   api-base-url: https://api.github.com
   token: ${GITHUB_TOKEN:}
   rate-limit-warn-threshold: 100
+  # Bounds on the outbound GitHub call. GitHubService retries up to 3 times, so
+  # an unbounded read would stall a request thread for an unbounded time.
+  connect-timeout: ${GITHUB_CONNECT_TIMEOUT:5s}
+  read-timeout: ${GITHUB_READ_TIMEOUT:15s}
 
 app:
   cors:
