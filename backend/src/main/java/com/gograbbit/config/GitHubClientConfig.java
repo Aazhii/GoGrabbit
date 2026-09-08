@@ -23,8 +23,13 @@ public class GitHubClientConfig {
         // Without explicit timeouts a hung GitHub connection would block a request
         // thread indefinitely — and GitHubService retries three times, so an
         // unbounded call is an unbounded stall. Both are configurable in application.yml.
+        // GitHub answers 301 for a renamed repository (facebook/react →
+        // react/react). HttpClient defaults to Redirect.NEVER, which surfaced as
+        // "no numeric id for repository" when resolving a repo id for label
+        // search; NORMAL follows the rename instead of failing on it.
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(connectTimeout)
+                .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(readTimeout);
