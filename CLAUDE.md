@@ -82,10 +82,12 @@ Phase 2 in the roadmap says so.
   going through a `SchedulerService` that also creates/reschedules/removes
   the matching trigger, per the convention above — right now it writes
   directly to `WatchedRepoRepository` because there's no scheduler yet.
-- GitHub's Search API requires an explicit `is:issue` qualifier and does
-  **not** resolve renamed repos (e.g. `facebook/react` → `react/react`) —
-  `GitHubService` sends `is:issue`; a stale owner/repo name will 502 with a
-  GitHub-forwarded message rather than silently returning nothing.
+- GitHub's Search API does **not** resolve renamed repos inside a `repo:`
+  qualifier (e.g. `facebook/react` → `react/react`) — a stale owner/repo
+  name will 502 with a GitHub-forwarded message rather than silently
+  returning nothing. The REST repo endpoint *does* redirect (301), and the
+  client follows redirects (`Redirect.NORMAL`) so repo-id resolution for
+  label search survives a rename.
 - **Search rate limits are per MINUTE and a separate bucket: 10/min
   unauthenticated, 30/min with a token.** This is not the 60/hr vs 5000/hr
   figure in `.env.example`, which covers non-search endpoints. Every UI
