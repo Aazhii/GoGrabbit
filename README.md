@@ -15,7 +15,7 @@ planned multi-user phase.
 | Backend    | Java 25 + Spring Boot 4.1                  |
 | Frontend   | TypeScript + React (Vite)                  |
 | Database   | PostgreSQL + Flyway + Spring Data JPA      |
-| Scheduling | Quartz (JDBC job store, per-repo triggers) |
+| Scheduling | *Planned* — Quartz (JDBC job store, per-repo triggers); not built yet, polling is manual |
 | Packaging  | Docker + Docker Compose                    |
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design and
@@ -24,11 +24,17 @@ original Node.js/TypeScript sketch this project started from.
 
 ## Status
 
-Backend (tables, GitHub API integration, repos/issues REST endpoints) and a
-simple frontend dashboard are working end-to-end. Not yet built: automatic
-scheduling (Quartz — polling is manual via a button for now), notification
-dispatch (Email/Telegram/Discord), auth. See `CLAUDE.md` for the detailed
-status and `docs/ROADMAP.md` for what's next.
+**Issue search (Phase 1)** is the primary feature: `GET /issues/search`
+searches GitHub issues live across all repositories, filtered by label,
+state, repo, creation date and sort order — no repo needs to be added
+first, and nothing is stored. The frontend leads with it.
+
+**Repo watching** (add a repo, poll it manually, see what it found) also
+works and now sits behind a second tab.
+
+Not yet built: automatic scheduling (Quartz — polling is manual via a
+button for now), notification dispatch (Email/Telegram/Discord), auth. See
+`CLAUDE.md` for detailed status and `docs/ROADMAP.md` for what's next.
 
 ## Quick start
 

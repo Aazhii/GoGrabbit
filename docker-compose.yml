@@ -23,7 +23,9 @@ services:
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-gograbbit}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     ports:
-      - "8080:8080"
+      # Host port is configurable: a local Zoho CRM app already owns 8080 on
+      # this machine. Same reason POSTGRES_HOST_PORT exists for 5432.
+      - "${BACKEND_HOST_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy

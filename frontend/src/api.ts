@@ -1,11 +1,14 @@
-import type { SeenIssue, WatchedRepo } from "./types";
+import type { IssueSearchFilters, IssueSearchResponse, SeenIssue, WatchedRepo } from "./types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // `...init` is spread last so callers keep full control, but `headers` is
+  // merged explicitly first — otherwise an init that carries its own headers
+  // would silently drop the JSON content type.
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
 
   if (!response.ok) {
@@ -61,4 +64,28 @@ export function listRecentIssues(filters: IssueFilters = {}): Promise<SeenIssue[
 
   const query = params.toString();
   return request(`/issues/recent${query ? `?${query}` : ""}`);
+}
+
+export function searchIssues(
+  filters: IssueSearchFilters = {},
+  signal?: AbortSignal,
+): Promise<IssueSearchResponse> {
+  const params = new URLSearchParams();
+  if (filters.q) params.set("q", filters.q);
+  if (filters.labels && filters.labels.length > 0) params.set("labels", filters.labels.join(","));
+  if (filters.state) params.set("state", filters.state);
+  if (filters.owner) params.set("owner", filters.owner);
+  if (filters.repo) params.set("repo", filters.repo);
+  if (filters.createdWithinDays != null) {
+    params.set("createdWithinDays", String(filters.createdWithinDays));
+  }
+  if (filters.createdFrom) params.set("createdFrom", filters.createdFrom);
+  if (filters.createdTo) params.set("createdTo", filters.createdTo);
+  if (filters.sort) params.set("sort", filters.sort);
+  if (filters.order) params.set("order", filters.order);
+  if (filters.page != null) params.set("page", String(filters.page));
+  if (filters.perPage != null) params.set("perPage", String(filters.perPage));
+
+  const query = params.toString();
+  return request(`/issues/search${query ? `?${query}` : ""}`, { signal });
 }
