@@ -24,10 +24,12 @@ original Node.js/TypeScript sketch this project started from.
 
 ## Status
 
-**Issue search (Phase 1)** is the primary feature: `GET /issues/search`
-searches GitHub issues live across all repositories, filtered by label,
-state, repo, creation date and sort order — no repo needs to be added
-first, and nothing is stored. The frontend leads with it.
+**Universal GitHub search** is the primary feature: search issues,
+repositories, users, code, commits, topics and labels live across all of
+GitHub — no repo needs to be added first, and nothing is stored. Filters
+are generated from a server-published catalog of ~116 GitHub qualifiers,
+so the things GitHub makes you memorise (`no:assignee`,
+`good-first-issues:>5`) are real controls here.
 
 **Repo watching** (add a repo, poll it manually, see what it found) also
 works and now sits behind a second tab.

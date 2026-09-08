@@ -15,12 +15,46 @@ Goals, in order: **correct** (no duplicate/missed notifications) → **fast**
 **reliable** (survives restarts, a slow/broken notification channel doesn't
 block others or lose scheduling state).
 
-## High-level flow — issue search (Phase 1, primary path)
+## High-level flow — universal search (primary path)
 
-Issue-first discovery: the user searches GitHub issues directly across all
-repositories, instead of adding repos one at a time and hoping they contain
-something to work on. This path is **stateless** — it touches no database
-table at all.
+Issue-first discovery, generalized: the user searches GitHub directly —
+issues, repositories, users, code, commits, topics or labels — instead of
+adding repos one at a time and hoping they contain something to work on.
+This path is **stateless**: it touches no database table at all.
+
+The layer is **spec-driven**. `SearchCatalog` declares each search type
+(its GitHub endpoint, its permitted sorts, its filter groups and every
+qualifier it accepts); `SearchQueryBuilder` renders request parameters
+into a GitHub query string by consulting that spec. The frontend fetches
+the same catalog from `GET /search/catalog` and generates its filter
+controls from it, so a new qualifier is a single catalog entry that shows
+up in the UI with no frontend change.
+
+```
+ ┌────────────────────┐   GET /search/catalog   ┌──────────────────────┐
+ │   Filter sidebar    │◀───────────────────────│    SearchCatalog      │
+ │  (generated from    │                         │  7 types, ~116        │
+ │   the catalog)      │                         │  qualifiers           │
+ └─────────┬──────────┘                         └───────────┬──────────┘
+            │ GET /search/{type}?<qualifier>=...             │ consulted by
+            ▼                                                ▼
+ ┌────────────────────┐        ┌──────────────────────────────────────┐
+ │  SearchController   │───────▶│  SearchQueryBuilder → SearchService   │
+ └────────────────────┘        │  → GitHubService → GitHub REST        │
+                                └──────────────────────────────────────┘
+```
+
+Per-type rules the catalog encodes, because getting any of them wrong is a
+422 from GitHub: sort enums differ per endpoint (topics accepts none at
+all), labels requires a numeric repository id and takes no qualifiers, code
+search requires authentication and draws on a separate 10/min bucket, and
+an issues query must name `is:issue` or `is:pull-request`.
+
+### The older issue-only path
+
+`GET /issues/search` still exists and works, but no UI calls it — the
+Search tab goes through `/search/issues`. It remains as a narrower,
+issue-specific entry point; retiring it is a separate decision.
 
 ```
  ┌────────────────────┐        ┌─────────────────────────┐
@@ -265,7 +299,9 @@ land (Phase 2) — not before.
 | POST   | `/repos`         | Add a repo `{owner, repo, labels, intervalMinutes}`       |
 | PATCH  | `/repos/{id}`    | Update labels/interval/active (reschedules Quartz trigger) |
 | DELETE | `/repos/{id}`    | Stop watching a repo (removes trigger)                     |
-| GET    | `/issues/search` | **Phase 1 primary.** Live GitHub issue search. Params: `q`, `labels`, `state`, `owner`, `repo`, `createdWithinDays`, `createdFrom`, `createdTo`, `sort`, `order`, `page`, `perPage`. Stateless — hits GitHub, stores nothing |
+| GET    | `/search/catalog` | **Primary.** The search spec: every type, its sorts, groups and qualifiers. The UI builds its filters from this |
+| GET    | `/search/{type}` | **Primary.** Live search against GitHub. `{type}` ∈ `repositories`, `issues`, `users`, `code`, `commits`, `topics`, `labels`. Accepts that type's qualifiers as camelCase params plus `q`, `sort`, `order`, `page`, `perPage`. Stateless |
+| GET    | `/issues/search` | Older issue-only search. Still works; no UI calls it |
 | POST   | `/repos/{id}/poll` | Poll one watched repo now (currently the only way anything polls) |
 | GET    | `/issues/recent` | Issues *already seen by a poll*, from the `seen_issue` table — filterable by `sinceDays`, `owner`, `repo`, `limit`, sorted by `postedAt desc`. Not a GitHub search |
 | GET    | `/channels`      | List notification channels                                 |
