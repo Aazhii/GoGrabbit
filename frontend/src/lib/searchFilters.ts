@@ -35,9 +35,32 @@ export interface QualifierValue {
 
 export type JoinMode = "or" | "and";
 
-export type Comparator = "eq" | "gte" | "lte" | "gt" | "lt" | "between" | "raw";
+export type Comparator = "within" | "eq" | "gte" | "lte" | "gt" | "lt" | "between" | "raw";
+
+/**
+ * Relative windows for date filters — "opened in the last 7 days" is the
+ * question people actually ask, and typing an absolute date to ask it is a
+ * chore. Serialized as >=YYYY-MM-DD computed at search time, which the backend
+ * widens to an explicit UTC timestamp.
+ */
+export const RELATIVE_WINDOWS: { value: string; label: string; days: number }[] = [
+  { value: "1", label: "24 hours", days: 1 },
+  { value: "3", label: "3 days", days: 3 },
+  { value: "7", label: "week", days: 7 },
+  { value: "14", label: "2 weeks", days: 14 },
+  { value: "30", label: "month", days: 30 },
+  { value: "90", label: "3 months", days: 90 },
+  { value: "180", label: "6 months", days: 180 },
+  { value: "365", label: "year", days: 365 },
+];
+
+/** Date filters open on a relative window; everything else on "at least". */
+export function defaultComparator(kind: string): Comparator {
+  return kind === "DATE_RANGE" ? "within" : "gte";
+}
 
 export const COMPARATORS: { value: Comparator; label: string; hint: string }[] = [
+  { value: "within", label: "in the last", hint: "7 days" },
   { value: "eq", label: "is exactly", hint: "5" },
   { value: "gte", label: "at least", hint: ">=5" },
   { value: "lte", label: "at most", hint: "<=5" },
@@ -128,6 +151,12 @@ function cleanList(value: QualifierValue): string[] {
 
 function serializeRange(value: QualifierValue): string | null {
   switch (value.comparator) {
+    case "within": {
+      const days = Number(value.from.trim() || value.text.trim());
+      if (!Number.isFinite(days) || days <= 0) return null;
+      const since = new Date(Date.now() - days * 86_400_000);
+      return `>=${since.toISOString().slice(0, 10)}`;
+    }
     case "raw":
       return value.text.trim() || null;
     case "between": {

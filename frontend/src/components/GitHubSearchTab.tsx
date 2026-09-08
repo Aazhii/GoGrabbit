@@ -10,6 +10,7 @@ import { useGitHubSearch } from "../hooks/useGitHubSearch";
 import { useSearchCatalog } from "../hooks/useSearchCatalog";
 import {
   EMPTY_VALUE,
+  defaultComparator,
   activeFilters,
   formFingerprint,
   initialFormState,
@@ -123,7 +124,13 @@ export default function GitHubSearchTab() {
   /** Adds an empty row. Presence in the record IS the row — see searchFilters. */
   function addFilter(key: string) {
     if (!activeSlug || key in form.filters) return;
-    patchFilter(key, {});
+    // A date row opens on "in the last 7 days" rather than an empty absolute
+    // date, because that is the question people actually come here to ask.
+    const kind = type?.qualifiers.find((q) => q.key === key)?.kind;
+    patchFilter(
+      key,
+      kind === "DATE_RANGE" ? { comparator: defaultComparator(kind), from: "7" } : {},
+    );
   }
 
   /**

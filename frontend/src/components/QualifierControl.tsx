@@ -1,5 +1,5 @@
 import { useState, type RefObject } from "react";
-import type { QualifierValue } from "../lib/searchFilters";
+import { RELATIVE_WINDOWS, type QualifierValue } from "../lib/searchFilters";
 import type { SearchQualifier } from "../types";
 
 /**
@@ -210,6 +210,30 @@ function RangeValue({ qualifier, value, id, focusRef, onChange }: ValueEditorPro
   const isDate = qualifier.kind === "DATE_RANGE";
   const inputType = isDate ? "date" : "number";
   const inputRef = focusRef as RefObject<HTMLInputElement | null> | undefined;
+
+  if (value.comparator === "within") {
+    const selected = value.from || "7";
+    return (
+      <>
+        <label className="sr-only" htmlFor={id}>
+          {qualifier.label} within the last
+        </label>
+        <select
+          id={id}
+          ref={focusRef as RefObject<HTMLSelectElement | null> | undefined}
+          className="fb-select"
+          value={selected}
+          onChange={(e) => onChange({ from: e.target.value })}
+        >
+          {RELATIVE_WINDOWS.map((w) => (
+            <option key={w.value} value={w.value}>
+              {w.label}
+            </option>
+          ))}
+        </select>
+      </>
+    );
+  }
 
   if (value.comparator === "raw") {
     return (
