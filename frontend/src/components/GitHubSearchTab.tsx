@@ -120,14 +120,43 @@ export default function GitHubSearchTab() {
     if (!search.pristine) submit({ ...form, order }, 1);
   }
 
+  /** Adds an empty row. Presence in the record IS the row — see searchFilters. */
+  function addFilter(key: string) {
+    if (!activeSlug || key in form.filters) return;
+    patchFilter(key, {});
+  }
+
+  /**
+   * Swapping the qualifier on an existing row keeps the row where it is, so the
+   * list doesn't reshuffle under the cursor — hence the rebuild rather than a
+   * delete + re-add, which would move it to the end.
+   */
+  function replaceFilter(key: string, nextKey: string) {
+    if (!activeSlug || key === nextKey) return;
+    const filters: FilterState = {};
+    for (const [existing, value] of Object.entries(form.filters)) {
+      if (existing === key) filters[nextKey] = { ...EMPTY_VALUE };
+      else if (existing !== nextKey) filters[existing] = value;
+    }
+    setForms((current) => ({ ...current, [activeSlug]: { ...form, filters } }));
+  }
+
+  /** Removing a row deletes the key outright — an empty row is still a row. */
   function removeFilter(key: string) {
     if (!activeSlug) return;
-    const next: SearchFormState = {
-      ...form,
-      filters: { ...form.filters, [key]: { ...EMPTY_VALUE } },
-    };
+    const filters = { ...form.filters };
+    delete filters[key];
+    const next: SearchFormState = { ...form, filters };
     setForms((current) => ({ ...current, [activeSlug]: next }));
     if (!search.pristine) submit(next, 1);
+  }
+
+  /** A preset replaces the whole filter set and searches straight away. */
+  function applyPreset(filters: FilterState) {
+    if (!activeSlug) return;
+    const next: SearchFormState = { ...form, filters: { ...filters } };
+    setForms((current) => ({ ...current, [activeSlug]: next }));
+    submit(next, 1);
   }
 
   function removeTerm() {
@@ -266,7 +295,10 @@ export default function GitHubSearchTab() {
             repo={form.repo}
             onOwnerRepoChange={setOwnerRepo}
             onFilterChange={patchFilter}
-            onClearFilter={removeFilter}
+            onAddFilter={addFilter}
+            onReplaceFilter={replaceFilter}
+            onRemoveFilter={removeFilter}
+            onApplyPreset={applyPreset}
             onClearAll={clearAll}
             onApply={() => submit(form, 1)}
             loading={search.loading}
