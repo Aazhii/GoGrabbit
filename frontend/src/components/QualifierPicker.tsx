@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { selectableQualifiers } from "../lib/searchFilters";
 import type { SearchQualifier, SearchTypeDescriptor } from "../types";
 
@@ -135,7 +136,7 @@ export default function QualifierPicker({
       const below = window.innerHeight - r.bottom - margin;
       const above = r.top - margin;
       const flip = below < 240 && above > below;
-      const maxHeight = Math.max(180, Math.min(460, flip ? above : below));
+      const maxHeight = Math.max(200, Math.min(440, flip ? above : below));
       setPlacement({
         left: Math.min(Math.max(margin, r.left), window.innerWidth - width - margin),
         top: flip ? undefined : r.bottom + 6,
@@ -238,7 +239,7 @@ export default function QualifierPicker({
         <span aria-hidden="true">＋</span> Add filter
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
           ref={popoverRef}
           className="fb-popover"
@@ -249,7 +250,8 @@ export default function QualifierPicker({
                   top: placement.top,
                   bottom: placement.bottom,
                   width: placement.width,
-                  ["--fb-popover-max-h" as string]: `${placement.maxHeight}px`,
+                  maxHeight: placement.maxHeight,
+                  ["--fb-popover-max-h" as string]: `${placement.maxHeight - 62}px`,
                 }
               : { visibility: "hidden" }
           }
@@ -327,7 +329,8 @@ export default function QualifierPicker({
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

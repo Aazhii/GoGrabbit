@@ -384,7 +384,10 @@
      absolutely-positioned child. Coordinates come from QualifierPicker, which
      measures the trigger and flips the menu above it when space below is tight. */
   position: fixed;
-  z-index: 200;
+  /* Rendered through a portal on document.body, so this z-index is absolute
+     rather than trapped inside the sidebar's sticky stacking context. It must
+     clear the sticky tab bar, which creates its own context via backdrop-filter. */
+  z-index: 1000;
   min-width: 18.75rem;
   display: flex;
   flex-direction: column;
