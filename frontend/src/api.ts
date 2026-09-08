@@ -1,4 +1,13 @@
-import type { IssueSearchFilters, IssueSearchResponse, SeenIssue, WatchedRepo } from "./types";
+import type {
+  IssueSearchFilters,
+  IssueSearchResponse,
+  SearchCatalog,
+  SearchRequestParams,
+  SearchResponse,
+  SeenIssue,
+  WatchedRepo,
+} from "./types";
+import type { SearchTypeSlug } from "./types/searchItems";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
@@ -88,4 +97,38 @@ export function searchIssues(
 
   const query = params.toString();
   return request(`/issues/search${query ? `?${query}` : ""}`, { signal });
+}
+
+/* ---------------- multi-type GitHub search ---------------- */
+
+/**
+ * The catalog drives the entire search UI — which type tabs exist, which
+ * filters each type offers and how each one is rendered. Fetched once.
+ */
+export function getSearchCatalog(signal?: AbortSignal): Promise<SearchCatalog> {
+  return request("/search/catalog", { signal });
+}
+
+export function runSearch(
+  slug: SearchTypeSlug,
+  params: SearchRequestParams = {},
+  signal?: AbortSignal,
+): Promise<SearchResponse> {
+  const search = new URLSearchParams();
+  if (params.q) search.set("q", params.q);
+  if (params.owner) search.set("owner", params.owner);
+  if (params.repo) search.set("repo", params.repo);
+  if (params.sort) search.set("sort", params.sort);
+  if (params.order) search.set("order", params.order);
+  if (params.page != null) search.set("page", String(params.page));
+  if (params.perPage != null) search.set("perPage", String(params.perPage));
+
+  // Qualifier values arrive pre-serialised (">=500", "1..10", "-java") so the
+  // transport layer never has to know about GitHub's range syntax.
+  for (const [key, value] of Object.entries(params.qualifiers ?? {})) {
+    if (value) search.set(key, value);
+  }
+
+  const query = search.toString();
+  return request(`/search/${slug}${query ? `?${query}` : ""}`, { signal });
 }
