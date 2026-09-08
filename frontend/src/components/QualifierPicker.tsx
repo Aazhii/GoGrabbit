@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { selectableQualifiers } from "../lib/searchFilters";
 import type { SearchQualifier, SearchTypeDescriptor } from "../types";
 
@@ -49,6 +49,13 @@ export default function QualifierPicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [placement, setPlacement] = useState<{
+    left: number;
+    top?: number;
+    bottom?: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
 
   const baseId = useId();
   const listId = `${baseId}-list`;
@@ -109,6 +116,42 @@ export default function QualifierPicker({
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  // The sidebar is a sticky scroll container (overflow-y: auto), which CLIPS an
+  // absolutely-positioned child — the popover was being cut to a sliver. Fixed
+  // positioning escapes any ancestor overflow, so measure the trigger and place
+  // it in viewport coordinates. Recomputed on scroll and resize so it tracks.
+  useLayoutEffect(() => {
+    if (!open) return;
+
+    function place() {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const r = trigger.getBoundingClientRect();
+      const margin = 8;
+      const width = Math.max(r.width, 300);
+      // Flip above the trigger when there is more room up than down.
+      const below = window.innerHeight - r.bottom - margin;
+      const above = r.top - margin;
+      const flip = below < 240 && above > below;
+      const maxHeight = Math.max(180, Math.min(460, flip ? above : below));
+      setPlacement({
+        left: Math.min(Math.max(margin, r.left), window.innerWidth - width - margin),
+        top: flip ? undefined : r.bottom + 6,
+        bottom: flip ? window.innerHeight - r.top + 6 : undefined,
+        width,
+        maxHeight,
+      });
+    }
+
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
   }, [open]);
 
   // Keep the arrow-key selection inside the scroll box.
@@ -199,6 +242,17 @@ export default function QualifierPicker({
         <div
           ref={popoverRef}
           className="fb-popover"
+          style={
+            placement
+              ? {
+                  left: placement.left,
+                  top: placement.top,
+                  bottom: placement.bottom,
+                  width: placement.width,
+                  ["--fb-popover-max-h" as string]: `${placement.maxHeight}px`,
+                }
+              : { visibility: "hidden" }
+          }
           role="dialog"
           aria-label={`Add a ${type.label.toLowerCase()} filter`}
           onKeyDown={onKeyDown}

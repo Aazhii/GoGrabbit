@@ -380,12 +380,12 @@
 }
 
 .fb-popover {
-  position: absolute;
-  z-index: 40;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
-  min-width: 16rem;
+  /* Fixed, not absolute: the sidebar is a scroll container and would clip an
+     absolutely-positioned child. Coordinates come from QualifierPicker, which
+     measures the trigger and flips the menu above it when space below is tight. */
+  position: fixed;
+  z-index: 200;
+  min-width: 18.75rem;
   display: flex;
   flex-direction: column;
   background: var(--surface-raised);
@@ -405,8 +405,10 @@
 }
 
 .fb-popover-list {
-  max-height: 20rem;
+  /* Set from the measured space between the trigger and the viewport edge. */
+  max-height: var(--fb-popover-max-h, 24rem);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0.25rem;
 }
 
@@ -499,10 +501,6 @@
  * would otherwise push the whole page down. Cap it and let it scroll instead.
  */
 @media (max-width: 720px) {
-  .fb-popover-list {
-    max-height: 14rem;
-  }
-
   .fb-select-key {
     flex: 1 1 100%;
   }
