@@ -137,7 +137,10 @@ public class GlobalExceptionHandler {
             sb.append(" (").append(resource.toLowerCase(Locale.ROOT)).append(" bucket)");
         }
         sb.append(". ");
-        if ("search".equalsIgnoreCase(resource)) {
+        if ("code_search".equalsIgnoreCase(resource)) {
+            sb.append("GitHub's code-search API has its own bucket, limited to 10 requests/minute "
+                    + "(and it requires authentication at all). ");
+        } else if ("search".equalsIgnoreCase(resource)) {
             sb.append("GitHub's search API allows 10 requests/minute unauthenticated and 30/minute authenticated. ");
         } else {
             sb.append("GitHub allows 60 requests/hour unauthenticated and 5000/hour authenticated. ");

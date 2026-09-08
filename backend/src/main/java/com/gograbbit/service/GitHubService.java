@@ -1,7 +1,10 @@
 package com.gograbbit.service;
 
+import tools.jackson.databind.JsonNode;
 import com.gograbbit.domain.WatchedRepo;
 import com.gograbbit.dto.GitHubIssueSearchResponse;
+import com.gograbbit.search.RateLimitInfo;
+import com.gograbbit.search.RawSearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,8 +14,13 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 @Service
@@ -72,11 +80,12 @@ public class GitHubService {
     public GitHubIssueSearchResponse searchIssues(String q, String sort, String order, int page, int perPage) {
         ResponseEntity<GitHubIssueSearchResponse> response = executeWithRetry(() -> githubRestClient.get()
                 .uri(uriBuilder -> {
+                    // NOTE: `advanced_search=true` used to be sent here. GitHub's REST
+                    // reference now marks that parameter DEPRECATED — advanced search
+                    // became the default on 2025-09-04 — so it is deliberately omitted.
+                    // Please don't re-add it.
                     uriBuilder.path("/search/issues")
                             .queryParam("q", q)
-                            // Advanced search became the default on 2025-09-04; sending it
-                            // explicitly pins the semantics regardless of future defaults.
-                            .queryParam("advanced_search", "true")
                             .queryParam("per_page", perPage)
                             .queryParam("page", page);
                     if (sort != null) {
@@ -94,6 +103,92 @@ public class GitHubService {
 
         GitHubIssueSearchResponse body = response.getBody();
         return body == null ? new GitHubIssueSearchResponse(0, false, List.of()) : body;
+    }
+
+    /**
+     * Generic GitHub search call, shared by all seven search types.
+     *
+     * <p>The query string is assembled and percent-encoded by hand rather than
+     * through {@code UriBuilder.queryParam}: Spring treats {@code +} as a legal
+     * query sub-delimiter and leaves it raw, but GitHub decodes a raw {@code +}
+     * as a space — which would silently corrupt the {@code reactions-+1} sort into
+     * {@code reactions- 1} and 422. Encoding here guarantees {@code %2B}.
+     *
+     * @param path        GitHub path, e.g. {@code /search/repositories}
+     * @param q           the built search query; omitted when null/blank
+     * @param sort        endpoint-specific sort value, or null for best match. Topics
+     *                    supports no sorting, so null must genuinely send nothing.
+     * @param order       {@code asc}/{@code desc}; only attached when {@code sort} is present,
+     *                    because GitHub ignores it otherwise
+     * @param extraParams endpoint-specific extras, e.g. {@code repository_id} for labels
+     */
+    public RawSearchResult search(String path, String q, String sort, String order,
+                                  int page, int perPage, Map<String, String> extraParams) {
+        Map<String, String> params = new LinkedHashMap<>();
+        if (q != null && !q.isBlank()) {
+            params.put("q", q);
+        }
+        if (extraParams != null) {
+            extraParams.forEach((k, v) -> {
+                if (v != null && !v.isBlank()) {
+                    params.put(k, v);
+                }
+            });
+        }
+        if (sort != null) {
+            params.put("sort", sort);
+            if (order != null) {
+                params.put("order", order);
+            }
+        }
+        params.put("per_page", String.valueOf(perPage));
+        params.put("page", String.valueOf(page));
+
+        ResponseEntity<JsonNode> response = executeWithRetry(() -> githubRestClient.get()
+                .uri(uriBuilder -> {
+                    // build() resolves against the configured base URL, giving an
+                    // absolute URI that RestClient then uses verbatim.
+                    String base = uriBuilder.path(path).build().toString();
+                    return URI.create(base + "?" + encodeQuery(params));
+                })
+                .retrieve()
+                .toEntity(JsonNode.class));
+
+        logRateLimitIfLow(response);
+        return new RawSearchResult(response.getBody(), RateLimitInfo.from(response.getHeaders()));
+    }
+
+    /**
+     * {@code GET /repos/{owner}/{repo}} — used only to turn an owner/repo pair into
+     * the numeric {@code repository_id} that GitHub's label search requires.
+     *
+     * @return the repository JSON; never null on success
+     */
+    public JsonNode getRepository(String owner, String repo) {
+        ResponseEntity<JsonNode> response = executeWithRetry(() -> githubRestClient.get()
+                .uri(uriBuilder -> URI.create(uriBuilder.path("/repos").build().toString()
+                        + "/" + encodeValue(owner) + "/" + encodeValue(repo)))
+                .retrieve()
+                .toEntity(JsonNode.class));
+
+        logRateLimitIfLow(response);
+        return response.getBody();
+    }
+
+    private static String encodeQuery(Map<String, String> params) {
+        StringBuilder sb = new StringBuilder();
+        params.forEach((key, value) -> {
+            if (!sb.isEmpty()) {
+                sb.append('&');
+            }
+            sb.append(encodeValue(key)).append('=').append(encodeValue(value));
+        });
+        return sb.toString();
+    }
+
+    /** {@code URLEncoder} is form encoding, which renders a space as {@code +}; queries need {@code %20}. */
+    private static String encodeValue(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     <T> T executeWithRetry(Supplier<T> call) {

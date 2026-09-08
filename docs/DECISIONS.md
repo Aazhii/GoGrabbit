@@ -120,12 +120,12 @@ current (2026-09) compatibility info, not assumed.
   shape Jackson maps directly. Both APIs cap at 1,000 reachable results, so
   GraphQL buys nothing on the constraint that actually binds.
 
-## `advanced_search=true` is sent explicitly
+## `advanced_search` is no longer sent
 
-- GitHub made advanced search the default for issue queries on 2025-09-04;
-  the endpoint itself is **not** deprecated. Passing the parameter
-  explicitly is a no-op against today's default but pins the parsing
-  semantics against a future flip.
+- GitHub made advanced search the default for issue queries on 2025-09-04.
+  We briefly sent `advanced_search=true` to pin the parsing semantics, but
+  GitHub's REST reference now marks that parameter **deprecated**, so it has
+  been removed. The endpoint itself is not deprecated.
 - The semantic that changed and would bite silently: a space between
   multiple `repo:` / `org:` / `user:` qualifiers now means **AND**, not OR.
   A future "search several repos in one call" optimisation would return
@@ -166,3 +166,32 @@ current (2026-09) compatibility info, not assumed.
   rather than the generic 502, because "wait a minute" and "GitHub is
   broken" need different handling in the UI. 4xx is still never retried —
   a retry cannot fix a bad query.
+
+
+## Search is spec-driven rather than a parameter per filter
+
+- GitHub exposes roughly 116 qualifiers across its seven search types. A
+  `@RequestParam` per qualifier would mean hundreds of hand-written
+  parameters, a DTO per type, and a filter form that drifts out of sync
+  with the backend the moment either side changes.
+- Instead `SearchCatalog` declares each type and its qualifiers as data,
+  `SearchQueryBuilder` renders any request against that declaration, and
+  `GET /search/catalog` publishes it so the UI generates its own controls.
+  Adding a qualifier is one entry, and it appears in the UI immediately.
+- The cost is a layer of indirection and runtime rather than compile-time
+  validation of filter names. That is worth it at this many qualifiers; it
+  would not have been at eight, which is why the original `/issues/search`
+  was written the direct way and is being left alone.
+
+## The UI exposes what GitHub's own search hides
+
+- GitHub's search requires you to already know its syntax: `no:assignee`,
+  `good-first-issues:>5` and `interactions:>10` are all typed, not offered.
+  Generating controls from the catalog turns every qualifier into a real
+  control with its type, unit and allowed values.
+- Three things the UI shows that github.com/search does not: the exact
+  query being sent (copyable, so the syntax becomes learnable), the
+  remaining rate-limit budget (search is 30/min, code search 10/min), and
+  active filters as individually removable chips.
+- Booleans are tri-state. A checkbox conflates "unset" with "false", which
+  would silently send `archived:false` and change the result set.

@@ -1,29 +1,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { searchIssues } from "../api";
+import { runSearch } from "../api";
 import { isAbort, toFriendlyError, type FriendlyError } from "../lib/errors";
-import type { IssueSearchFilters, IssueSearchResponse } from "../types";
+import type { SearchRequestParams, SearchResponse, SearchTypeSlug } from "../types";
 
-export interface UseIssueSearch {
+export interface LastRun {
+  slug: SearchTypeSlug;
+  params: SearchRequestParams;
+}
+
+export interface UseGitHubSearch {
   loading: boolean;
   error: FriendlyError | null;
-  data: IssueSearchResponse | null;
-  /** Filters used for the most recent run — the source of truth for paging. */
-  lastFilters: IssueSearchFilters | null;
-  /** True until the first search has been run in this session. */
+  data: SearchResponse | null;
+  /** What produced the results on screen — the source of truth for paging. */
+  lastRun: LastRun | null;
+  /** True until a search has been run for the currently selected type. */
   pristine: boolean;
-  run: (filters: IssueSearchFilters) => void;
+  run: (slug: SearchTypeSlug, params: SearchRequestParams) => void;
   reset: () => void;
 }
 
-export function useIssueSearch(): UseIssueSearch {
+export function useGitHubSearch(): UseGitHubSearch {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<FriendlyError | null>(null);
-  const [data, setData] = useState<IssueSearchResponse | null>(null);
-  const [lastFilters, setLastFilters] = useState<IssueSearchFilters | null>(null);
+  const [data, setData] = useState<SearchResponse | null>(null);
+  const [lastRun, setLastRun] = useState<LastRun | null>(null);
   const [pristine, setPristine] = useState(true);
 
-  // Every run bumps the token and aborts the previous request, so a slow
-  // earlier search can never land after — or overwrite — a newer one.
+  // Same guard as useIssueSearch: every run aborts its predecessor and bumps a
+  // monotonic id, so a slow earlier response can never overwrite a newer one
+  // (switching type tabs quickly is exactly how that would otherwise happen).
   const controllerRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
   const mountedRef = useRef(true);
@@ -36,18 +42,18 @@ export function useIssueSearch(): UseIssueSearch {
     };
   }, []);
 
-  const run = useCallback((filters: IssueSearchFilters) => {
+  const run = useCallback((slug: SearchTypeSlug, params: SearchRequestParams) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     const runId = ++runIdRef.current;
 
     setPristine(false);
-    setLastFilters(filters);
+    setLastRun({ slug, params });
     setLoading(true);
     setError(null);
 
-    searchIssues(filters, controller.signal)
+    runSearch(slug, params, controller.signal)
       .then((response) => {
         if (runId !== runIdRef.current || !mountedRef.current) return;
         setData(response);
@@ -67,9 +73,9 @@ export function useIssueSearch(): UseIssueSearch {
     setLoading(false);
     setError(null);
     setData(null);
-    setLastFilters(null);
+    setLastRun(null);
     setPristine(true);
   }, []);
 
-  return { loading, error, data, lastFilters, pristine, run, reset };
+  return { loading, error, data, lastRun, pristine, run, reset };
 }

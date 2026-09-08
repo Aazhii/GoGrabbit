@@ -1,0 +1,745 @@
+/* Per-type search result cards.
+   Colours come from the custom properties defined in src/index.css; anything
+   introduced here is tokenised below with a prefers-color-scheme override. */
+
+.rc-card {
+  --rc-chip-bg: var(--surface-alt);
+  --rc-fresh: var(--open);
+  --rc-ghost: var(--text-subtle);
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-color-scheme: dark) {
+  .rc-card {
+    --rc-chip-bg: var(--surface-alt);
+  }
+}
+
+.rc-card:hover,
+.rc-card:focus-within {
+  border-color: var(--border-strong);
+}
+
+/* ---------- head ---------- */
+
+.rc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.rc-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.rc-title a {
+  text-decoration: none;
+}
+
+.rc-title a:hover {
+  text-decoration: underline;
+}
+
+.rc-title-plain a:hover {
+  text-decoration: none;
+}
+
+.rc-owner {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.rc-repo-name {
+  font-weight: 700;
+}
+
+.rc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.rc-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid currentColor;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.rc-badge-accent {
+  color: var(--accent);
+}
+
+.rc-badge-open {
+  color: var(--open);
+}
+
+.rc-badge-closed {
+  color: var(--closed);
+}
+
+.rc-badge-warning {
+  color: var(--warning);
+}
+
+.rc-badge-danger {
+  color: var(--danger);
+}
+
+/* ---------- body text ---------- */
+
+.rc-desc {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.rc-subline {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.rc-subline-flex {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rc-repo-ref {
+  color: var(--text-muted);
+}
+
+.rc-number {
+  margin-left: 0.4rem;
+  color: var(--text-subtle);
+}
+
+.rc-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.rc-link:hover {
+  text-decoration: underline;
+}
+
+.rc-truncate {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- meta rows ---------- */
+
+.rc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.rc-meta-time {
+  color: var(--text-subtle);
+}
+
+.rc-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.rc-meta-label {
+  color: var(--text-subtle);
+}
+
+.rc-lang-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid var(--border-strong);
+}
+
+.rc-fresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--rc-fresh);
+  margin: 0;
+}
+
+.rc-fresh-strong {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.rc-fresh-secondary {
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 0.35rem;
+}
+
+.rc-fresh-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* ---------- avatars / actors ---------- */
+
+.rc-avatar {
+  border-radius: 50%;
+  display: block;
+  flex: none;
+  background: var(--surface-alt);
+}
+
+.rc-avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.rc-actor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  min-width: 0;
+}
+
+a.rc-actor:hover {
+  text-decoration: underline;
+}
+
+.rc-actor-ghost {
+  font-style: italic;
+  color: var(--rc-ghost);
+}
+
+.rc-avatar-stack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.rc-stack-item {
+  display: inline-flex;
+  margin-right: -0.35rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.rc-stack-item:last-child {
+  margin-right: 0;
+}
+
+.rc-stack-more {
+  margin-left: 0.55rem;
+  color: var(--text-subtle);
+}
+
+.rc-unassigned {
+  color: var(--warning);
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ---------- issue state / labels ---------- */
+
+.rc-state {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+  flex: none;
+}
+
+.rc-state-open {
+  color: var(--open);
+}
+
+.rc-state-closed {
+  color: var(--closed);
+}
+
+.rc-labels {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0;
+  margin: 0;
+}
+
+.rc-label {
+  font-size: 0.76rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid transparent;
+  line-height: 1.5;
+}
+
+.rc-label-lg {
+  font-size: 0.95rem;
+  padding: 0.2rem 0.9rem;
+  font-weight: 600;
+}
+
+/* ---------- topics (repository chips) ---------- */
+
+.rc-topics {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0;
+  margin: 0;
+}
+
+.rc-topic {
+  font-size: 0.76rem;
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  background: var(--rc-chip-bg);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.rc-topic-more {
+  color: var(--text-subtle);
+}
+
+/* ---------- code paths ---------- */
+
+.rc-title-path {
+  font-weight: 500;
+}
+
+.rc-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rc-path-seg {
+  color: var(--text-muted);
+}
+
+.rc-path-sep {
+  color: var(--text-subtle);
+  padding: 0 0.05rem;
+}
+
+.rc-path-file {
+  font-weight: 700;
+}
+
+.rc-sha {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  background: var(--rc-chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0.05rem 0.35rem;
+}
+
+.rc-sha-strong {
+  font-size: 0.85rem;
+  color: var(--text);
+  flex: none;
+}
+
+/* ---------- commits ---------- */
+
+.rc-commit-body summary {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rc-commit-body pre {
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--surface-alt);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+/* ---------- users ---------- */
+
+.rc-card-user {
+  flex-direction: row;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+
+.rc-user-avatar {
+  flex: none;
+}
+
+.rc-user-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.rc-user-name {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- topics ---------- */
+
+.rc-card-topic {
+  flex-direction: row;
+  gap: 0.9rem;
+  align-items: flex-start;
+}
+
+.rc-topic-logo {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+
+.rc-topic-logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+  font-weight: 700;
+}
+
+.rc-topic-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 560px) {
+  .rc-card {
+    padding: 0.75rem 0.8rem;
+  }
+
+  .rc-badges {
+    margin-left: 0;
+  }
+
+  .rc-truncate {
+    max-width: 100%;
+  }
+
+  .rc-meta {
+    gap: 0.3rem 0.7rem;
+  }
+}
+
+/* =====================================================================
+   VISUAL DESIGN LAYER — elevation, state tints, scannability.
+   Tokens come from src/index.css (light `:root` + dark override).
+   ===================================================================== */
+
+.rc-card {
+  --rc-chip-bg: var(--chip-bg);
+  --rc-fresh: var(--open);
+
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 0.9rem 1.05rem;
+  transition:
+    box-shadow 130ms ease, border-color 130ms ease, transform 130ms ease,
+    background-color 130ms ease;
+}
+
+/* Zebra banding on the results list keeps a long feed scannable without
+   losing the card's raised feel. */
+.result-list > li:nth-child(even) > .rc-card {
+  background: color-mix(in srgb, var(--surface-alt) 55%, var(--surface-raised));
+}
+
+.rc-card:hover,
+.rc-card:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* ---------- typography hierarchy ---------- */
+
+.rc-title {
+  font-size: 1.08rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.rc-title a {
+  color: var(--accent);
+}
+
+.rc-title a:hover {
+  color: var(--accent-hover);
+}
+
+.rc-owner {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.rc-desc {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* Dense metadata rows: smaller, tighter, quieter. */
+.rc-meta,
+.rc-subline {
+  font-size: 0.81rem;
+  line-height: 1.3;
+}
+
+.rc-meta-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.rc-meta-item {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- freshness: the product's whole point, so anchor it ---------- */
+
+.rc-fresh {
+  align-self: flex-start;
+  color: var(--rc-fresh);
+  background: var(--open-bg);
+  border: 1px solid var(--open-border);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem 0.12rem 0.5rem;
+  line-height: 1.3;
+}
+
+.rc-fresh-strong {
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.rc-fresh-secondary {
+  color: var(--text-muted);
+}
+
+.rc-fresh-dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rc-fresh) 20%, transparent);
+}
+
+/* ---------- badges: tinted grounds, not bare coloured text ---------- */
+
+.rc-badge {
+  border: 1px solid var(--chip-border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-weight: 700;
+  padding: 0.12rem 0.55rem;
+}
+
+.rc-badge-accent {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+}
+
+.rc-badge-open {
+  color: var(--open);
+  background: var(--open-bg);
+  border-color: var(--open-border);
+}
+
+.rc-badge-closed {
+  color: var(--closed);
+  background: var(--closed-bg);
+  border-color: var(--closed-border);
+}
+
+/* "draft" is rendered as a warning-toned badge (IssueResultCard.tsx) —
+   there is no dedicated draft class in the markup, so the neutral draft
+   palette below is applied through the warning tone's dashed sibling only
+   where a real grey reads better. */
+.rc-badge-warning {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.rc-badge-danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+/* ---------- issue state pills ---------- */
+
+.rc-state {
+  border-width: 1px;
+  font-weight: 700;
+}
+
+.rc-state-open {
+  color: var(--open);
+  background: var(--open-bg);
+  border-color: var(--open-border);
+}
+
+.rc-state-closed {
+  color: var(--closed);
+  background: var(--closed-bg);
+  border-color: var(--closed-border);
+}
+
+.rc-unassigned {
+  color: var(--draft);
+  background: var(--draft-bg);
+  border: 1px dashed var(--draft-border);
+}
+
+/* ---------- chips, code wells, avatars ---------- */
+
+.rc-topic {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+a.rc-topic:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-raised));
+}
+
+.rc-sha {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.rc-sha-strong {
+  color: var(--text);
+}
+
+.rc-commit-body pre {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  line-height: 1.45;
+}
+
+.rc-commit-body summary:hover {
+  color: var(--accent);
+}
+
+.rc-avatar,
+.rc-topic-logo {
+  background: var(--surface-sunken);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+.rc-topic-logo {
+  border-radius: var(--radius-sm);
+  border-color: var(--border);
+}
+
+.rc-stack-item {
+  box-shadow: 0 0 0 2px var(--surface-raised);
+}
+
+.rc-lang-dot {
+  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+  box-shadow: var(--shadow-sm);
+}
+
+.rc-link:hover,
+a.rc-actor:hover {
+  color: var(--accent-hover);
+}
+
+.rc-path-file {
+  color: var(--text);
+}
+
+.rc-label {
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rc-card:hover,
+  .rc-card:focus-within {
+    transform: none;
+  }
+}
+
+/* A draft PR is not a warning — it is an inactive state, so it reads grey
+   rather than amber. Tokens defined alongside the other state colours. */
+.rc-badge-draft {
+  background: var(--draft-bg);
+  border-color: var(--draft-border);
+  color: var(--draft);
+}

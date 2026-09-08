@@ -82,3 +82,105 @@ export interface IssueSearchFilters {
   page?: number;
   perPage?: number;
 }
+
+/* ------------------------------------------------------------------ *
+ * Multi-type GitHub search (GET /search/catalog, GET /search/{slug})
+ *
+ * `SearchItem` / `SearchTypeSlug` live in ./types/searchItems.ts — the
+ * per-type item shapes are owned by the result-card layer.
+ * ------------------------------------------------------------------ */
+
+import type { SearchItem, SearchTypeSlug } from "./types/searchItems";
+
+export type { SearchItem, SearchTypeSlug };
+
+export type QualifierKind =
+  | "TEXT"
+  | "ENUM"
+  | "NUMBER_RANGE"
+  | "DATE_RANGE"
+  | "BOOLEAN"
+  | "FLAG"
+  | "MULTI_TEXT";
+
+export interface SearchQualifier {
+  key: string;
+  /** The GitHub qualifier this maps to, e.g. "stars" in `stars:>=500`. */
+  githubQualifier: string;
+  kind: QualifierKind;
+  /** Fixed value emitted by a FLAG qualifier; null for every other kind. */
+  flagValue: string | null;
+  label: string;
+  help: string | null;
+  /** Key of the group this belongs to; groups are rendered in catalog order. */
+  group: string;
+  allowedValues: string[] | null;
+  unit: string | null;
+  placeholder: string | null;
+  negatable: boolean;
+  repeatable: boolean;
+}
+
+export interface SearchQualifierGroup {
+  key: string;
+  label: string;
+}
+
+export interface SearchSortOption {
+  value: string;
+  label: string;
+}
+
+export interface SearchTypeDescriptor {
+  type: string;
+  slug: SearchTypeSlug;
+  label: string;
+  requiresAuth: boolean;
+  rateLimitBucket: string;
+  requiresRepositoryId: boolean;
+  requiresSearchTerm: boolean;
+  supportsBooleanOperators: boolean;
+  supportsOrder: boolean;
+  sorts: SearchSortOption[];
+  groups: SearchQualifierGroup[];
+  qualifiers: SearchQualifier[];
+}
+
+export interface SearchCatalog {
+  types: SearchTypeDescriptor[];
+}
+
+export interface SearchRateLimit {
+  limit: number;
+  remaining: number;
+  used: number;
+  resource: string;
+  resetAt: string;
+}
+
+export interface SearchResponse {
+  type: string;
+  items: SearchItem[];
+  totalCount: number;
+  page: number;
+  perPage: number;
+  hasNextPage: boolean;
+  resultsCapped: boolean;
+  incompleteResults: boolean;
+  /** The exact `q` string the backend sent to GitHub. */
+  query: string;
+  rateLimit: SearchRateLimit | null;
+}
+
+export interface SearchRequestParams {
+  q?: string;
+  sort?: string;
+  order?: "asc" | "desc";
+  page?: number;
+  perPage?: number;
+  /** Only for types with requiresRepositoryId (labels). */
+  owner?: string;
+  repo?: string;
+  /** qualifierKey -> already-serialised GitHub value, e.g. { stars: ">=500" }. */
+  qualifiers?: Record<string, string>;
+}

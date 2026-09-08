@@ -31,15 +31,23 @@ Phase 2 in the roadmap says so.
 
 ## Status
 
-- **Done — Phase 1 issue search (the primary feature)**: `GET /issues/search`
-  is a stateless live GitHub issue search —
-  `IssueSearchController` → `IssueSearchService` → `GitHubSearchQueryBuilder`
-  → `GitHubService.searchIssues`. Filters: free text, labels (OR'd in one
-  `label:` qualifier), state, `owner`/`repo`, `createdWithinDays` or a
-  `createdFrom`/`createdTo` range, sort (`created|updated|comments|bestmatch`),
-  order, page/perPage. **It stores nothing** — no table, no cache. The
-  frontend is now a two-tab app (`components/`, `hooks/useIssueSearch`,
-  `lib/`) with Search as the default tab.
+- **Done — universal GitHub search (the primary feature)**: all seven
+  search types (repositories, issues, users, code, commits, topics,
+  labels) behind two endpoints — `GET /search/catalog` and
+  `GET /search/{type}`. Stateless: no table, no cache.
+  - The `search/` package is **spec-driven**. `SearchCatalog` declares each
+    type (endpoint, sorts, groups, ~116 qualifiers total) and
+    `SearchQueryBuilder` renders arbitrary request params into a GitHub
+    query against that spec. **Adding a qualifier is one catalog entry** —
+    do not add a `@RequestParam` per filter, that is what this replaced.
+  - The frontend generates its whole filter sidebar from `/search/catalog`,
+    so a new qualifier appears in the UI with no frontend change at all.
+  - Request params are **camelCase** (`goodFirstIssues`, `isFeatured`) and
+    map to GitHub's hyphenated qualifiers (`good-first-issues:`,
+    `is:featured`) via `QualifierSpec.githubQualifier`.
+- The older single-purpose `GET /issues/search` still exists and works, but
+  nothing in the UI calls it any more — the Search tab goes through
+  `/search/issues`. Retiring it is a separate decision.
 - **Done — repo watch (pre-existing, still works)**: tables, `PollerService`,
   `/repos` + `/issues/recent`, CORS via `WebConfig`, 502 upstream mapping and
   409 on duplicate owner/repo. Now lives behind the "Watch" tab. Note
@@ -74,10 +82,12 @@ Phase 2 in the roadmap says so.
   going through a `SchedulerService` that also creates/reschedules/removes
   the matching trigger, per the convention above — right now it writes
   directly to `WatchedRepoRepository` because there's no scheduler yet.
-- GitHub's Search API requires an explicit `is:issue` qualifier and does
-  **not** resolve renamed repos (e.g. `facebook/react` → `react/react`) —
-  `GitHubService` sends `is:issue`; a stale owner/repo name will 502 with a
-  GitHub-forwarded message rather than silently returning nothing.
+- GitHub's Search API does **not** resolve renamed repos inside a `repo:`
+  qualifier (e.g. `facebook/react` → `react/react`) — a stale owner/repo
+  name will 502 with a GitHub-forwarded message rather than silently
+  returning nothing. The REST repo endpoint *does* redirect (301), and the
+  client follows redirects (`Redirect.NORMAL`) so repo-id resolution for
+  label search survives a rename.
 - **Search rate limits are per MINUTE and a separate bucket: 10/min
   unauthenticated, 30/min with a token.** This is not the 60/hr vs 5000/hr
   figure in `.env.example`, which covers non-search endpoints. Every UI
@@ -87,11 +97,28 @@ Phase 2 in the roadmap says so.
   pages; beyond that GitHub 422s), even when `total_count` is far larger.
   The backend rejects `page * perPage > 1000` with a 400, and the UI says
   so rather than faking a page count.
-- Advanced search became GitHub's default on 2025-09-04; `searchIssues`
-  sends `advanced_search=true` explicitly to pin the semantics. Under it, a
-  space between multiple `repo:`/`org:`/`user:` qualifiers means **AND**,
-  not OR — a future multi-repo single-query optimisation would silently
-  return zero rows without an explicit `OR`.
+- Advanced search became GitHub's default on 2025-09-04 and the
+  `advanced_search` parameter is now marked **deprecated** in GitHub's REST
+  reference — we no longer send it. Under advanced search a space between
+  multiple `repo:`/`org:`/`user:` qualifiers means **AND**, not OR, so a
+  future multi-repo single-query optimisation would silently return zero
+  rows without an explicit `OR`.
+- **A `/search/issues` query must name `is:issue` or `is:pull-request` or
+  GitHub 422s.** `SearchQueryBuilder` adds `is:issue` when the caller's
+  filters imply neither — without it, an Issues search with no type
+  selected fails. Do not remove that default; several builder tests assert
+  the resulting `is:issue` prefix.
+- Sort enums differ per search type and a wrong one is a 422: repositories
+  `stars|forks|help-wanted-issues|updated`, issues
+  `created|updated|comments|reactions*|interactions`, users
+  `followers|repositories|joined`, code `indexed` only, commits
+  `author-date|committer-date`, labels `created|updated`, and **topics
+  accepts no sort at all**. The catalog encodes this; trust it over memory.
+- Code search is a **separate 10/min bucket** (`code_search`) and requires a
+  token; the other six share the 30/min `search` bucket. Responses carry a
+  `rateLimit` object read off GitHub's headers, and the UI displays it.
+- Label search needs a numeric `repository_id` and accepts **no qualifiers**
+  — `/search/labels` takes `owner`+`repo` and resolves the id for you.
 - Every PR is also an issue. `is:issue` is sent *and* items with a non-null
   `pull_request` are dropped in `IssueSearchService` — belt and braces.
 - `order` is ignored by GitHub unless `sort` is also sent; `sort=bestmatch`
