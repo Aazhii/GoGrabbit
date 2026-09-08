@@ -9,7 +9,7 @@ export function Badge({
   title,
 }: {
   children: ReactNode;
-  tone?: "neutral" | "open" | "closed" | "warning" | "accent" | "danger";
+  tone?: "neutral" | "open" | "closed" | "warning" | "accent" | "danger" | "draft";
   title?: string;
 }): JSX.Element {
   return (

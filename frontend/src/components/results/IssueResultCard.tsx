@@ -28,7 +28,7 @@ export function IssueResultCard({ item }: { item: IssueItem }): JSX.Element {
         </h3>
         <div className="rc-badges">
           <Badge tone={isPr ? "accent" : "neutral"}>{isPr ? "Pull request" : "Issue"}</Badge>
-          {isPr && item.draft ? <Badge tone="warning">draft</Badge> : null}
+          {isPr && item.draft ? <Badge tone="draft">draft</Badge> : null}
           {item.milestone ? <Badge title="Milestone">{item.milestone}</Badge> : null}
         </div>
       </div>
