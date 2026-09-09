@@ -14,8 +14,12 @@ import java.util.Locale;
  */
 public enum SearchType {
 
-    REPOSITORIES("repositories", "/search/repositories", "Repositories"),
+    // Declaration order IS the order the catalog and the UI's tab strip use, and
+    // the first entry is the tab the app opens on. Issues leads deliberately: the
+    // product exists so you can search for the right issue directly instead of
+    // browsing repositories hoping to find one.
     ISSUES("issues", "/search/issues", "Issues & pull requests"),
+    REPOSITORIES("repositories", "/search/repositories", "Repositories"),
     USERS("users", "/search/users", "Users & organizations"),
     CODE("code", "/search/code", "Code"),
     COMMITS("commits", "/search/commits", "Commits"),

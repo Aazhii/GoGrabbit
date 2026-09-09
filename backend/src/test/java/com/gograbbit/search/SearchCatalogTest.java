@@ -171,10 +171,14 @@ class SearchCatalogTest {
 
     @Test
     void unknownSlugIsRejectedWithTheValidOnesListed() {
+        // Asserted slug by slug rather than as one joined string: the order is
+        // the enum's declaration order, which is a deliberate product choice
+        // (issues first) and may change again.
         assertThatThrownBy(() -> SearchType.fromSlug("repos"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("repos")
-                .hasMessageContaining("repositories, issues, users, code, commits, topics, labels");
+                .hasMessageContainingAll("repositories", "issues", "users", "code",
+                        "commits", "topics", "labels");
     }
 
     @Test

@@ -30,7 +30,12 @@ export default function GitHubSearchTab() {
 
   const types = useMemo(() => catalog?.types ?? [], [catalog]);
   const [slug, setSlug] = useState<SearchTypeSlug | null>(null);
-  const activeSlug: SearchTypeSlug | null = slug ?? types[0]?.slug ?? null;
+  // Land on issues rather than whatever the catalog happens to list first: the
+  // freshness filters that make this product useful live on that tab, and opening
+  // on repositories hid them behind a tab switch.
+  const defaultSlug: SearchTypeSlug | null =
+    types.find((t) => t.slug === "issues")?.slug ?? types[0]?.slug ?? null;
+  const activeSlug: SearchTypeSlug | null = slug ?? defaultSlug;
   const type = useMemo(
     () => types.find((t) => t.slug === activeSlug) ?? null,
     [types, activeSlug],
