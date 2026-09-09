@@ -56,8 +56,25 @@ const BY_SLUG: Record<string, () => FilterPreset[]> = {
       state: value({ text: "open" }),
       type: value({ text: "issue" }),
     }),
-    preset("recently-created", "Recently created", "Open issues created in the last 7 days.", {
-      created: value({ comparator: "gte", from: daysAgo(7) }),
+    /**
+     * Relative windows, not a frozen `daysAgo()` date: the row then reads "in the
+     * last 24 hours" and keeps meaning that however long the tab has been open,
+     * and it stays editable through the same dropdown.
+     */
+    preset("opened-last-24h", "Opened in last 24 hours", "Open issues created in the last 24 hours — the freshest opportunities, least likely to be claimed already.", {
+      created: value({ comparator: "within", from: "1" }),
+      state: value({ text: "open" }),
+      type: value({ text: "issue" }),
+    }),
+    preset("fresh-unassigned-24h", "New & unassigned (24h)", 'Open issues labelled "good first issue" created in the last 24 hours with nobody assigned.', {
+      created: value({ comparator: "within", from: "1" }),
+      label: value({ list: ["good first issue"] }),
+      no: value({ list: ["assignee"] }),
+      state: value({ text: "open" }),
+      type: value({ text: "issue" }),
+    }),
+    preset("recently-created", "Opened this week", "Open issues created in the last 7 days.", {
+      created: value({ comparator: "within", from: "7" }),
       state: value({ text: "open" }),
       type: value({ text: "issue" }),
     }),
