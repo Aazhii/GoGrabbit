@@ -372,6 +372,9 @@ export interface SearchFormState {
   filters: FilterState;
 }
 
+/** The freshness window an issue search opens on, in days. */
+export const DEFAULT_ISSUE_WINDOW_DAYS = "1";
+
 export function initialFormState(type: SearchTypeDescriptor | null): SearchFormState {
   return {
     q: "",
@@ -380,7 +383,27 @@ export function initialFormState(type: SearchTypeDescriptor | null): SearchFormS
     sort: type?.sorts[0]?.value ?? "",
     order: "desc",
     perPage: 30,
-    filters: {},
+    filters: seededFilters(type),
+  };
+}
+
+/**
+ * An issue search opens with a visible "created in the last 24 hours" row.
+ *
+ * Finding issues nobody has picked up yet is the whole point, so the freshness
+ * control belongs on screen and adjustable the moment the tab opens. It ended up
+ * behind "Add filter" when the always-visible filter list became a builder, which
+ * read as the feature having been removed.
+ *
+ * Only ISSUES is seeded: elsewhere `created` is the REPOSITORY's creation date,
+ * which is a different question and a poor default.
+ */
+function seededFilters(type: SearchTypeDescriptor | null): FilterState {
+  if (!type || type.slug !== "issues") return {};
+  const created = type.qualifiers.find((q) => q.key === "created");
+  if (!created || created.kind !== "DATE_RANGE") return {};
+  return {
+    created: { ...EMPTY_VALUE, comparator: "within", from: DEFAULT_ISSUE_WINDOW_DAYS },
   };
 }
 
