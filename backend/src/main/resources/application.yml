@@ -28,6 +28,12 @@ github:
   api-base-url: https://api.github.com
   token: ${GITHUB_TOKEN:}
   rate-limit-warn-threshold: 100
+  graphql:
+    # Pages of 100 issues scanned when a post-filter (repoStars) is active. GitHub
+    # only exposes 1000 results, so 10 covers everything; each page costs 1 point of
+    # 5000/hour, so the real limit is latency, not budget. 5 keeps a search responsive
+    # while still looking at 500 issues.
+    issue-scan-page-budget: ${GITHUB_ISSUE_SCAN_PAGE_BUDGET:5}
   # Bounds on the outbound GitHub call. GitHubService retries up to 3 times, so
   # an unbounded read would stall a request thread for an unbounded time.
   connect-timeout: ${GITHUB_CONNECT_TIMEOUT:5s}
