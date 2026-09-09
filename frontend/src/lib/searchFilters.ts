@@ -102,7 +102,10 @@ export function valueOf(state: FilterState, key: string): QualifierValue {
  * page's search box — it must never appear as a filter row you can add twice.
  */
 export function isFreeTextQualifier(qualifier: SearchQualifier): boolean {
-  return qualifier.key === "q" || qualifier.githubQualifier == null;
+  // Keyed on "q" alone, NOT on a null githubQualifier: post-filter qualifiers
+  // (repoStars) also have no GitHub-side name, and treating them as free text
+  // dropped them from the sidebar and silently discarded the value.
+  return qualifier.key === "q";
 }
 
 /** Qualifiers the builder offers as rows: everything except the search box. */
