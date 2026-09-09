@@ -15,6 +15,7 @@ import static com.gograbbit.search.QualifierSpec.flag;
 import static com.gograbbit.search.QualifierSpec.freeText;
 import static com.gograbbit.search.QualifierSpec.multiText;
 import static com.gograbbit.search.QualifierSpec.numberRange;
+import static com.gograbbit.search.QualifierSpec.postFilterRange;
 import static com.gograbbit.search.QualifierSpec.text;
 
 /**
@@ -49,6 +50,8 @@ public class SearchCatalog {
     private static final String G_ATTRIBUTES = "attributes";
     private static final String G_STATE = "state";
 
+    private static final String G_REPO_FILTER = "repoFilter";
+
     private static final GroupSpec GROUP_TEXT = new GroupSpec(G_TEXT, "Text");
     private static final GroupSpec GROUP_SCOPE = new GroupSpec(G_SCOPE, "Scope");
     private static final GroupSpec GROUP_PEOPLE = new GroupSpec(G_PEOPLE, "People");
@@ -56,6 +59,8 @@ public class SearchCatalog {
     private static final GroupSpec GROUP_DATES = new GroupSpec(G_DATES, "Dates");
     private static final GroupSpec GROUP_ATTRIBUTES = new GroupSpec(G_ATTRIBUTES, "Attributes");
     private static final GroupSpec GROUP_STATE = new GroupSpec(G_STATE, "State");
+    private static final GroupSpec GROUP_REPO_FILTER =
+            new GroupSpec(G_REPO_FILTER, "Repository (filtered after fetch)");
 
     public static final String BUCKET_SEARCH = "search";
     public static final String BUCKET_CODE_SEARCH = "code_search";
@@ -214,7 +219,18 @@ public class SearchCatalog {
                 dateRange("created", "created", "Created", "When it was opened.", G_DATES),
                 dateRange("updated", "updated", "Updated", "When it was last updated.", G_DATES),
                 dateRange("closed", "closed", "Closed", "When it was closed.", G_DATES),
-                dateRange("merged", "merged", "Merged", "When the pull request was merged.", G_DATES)
+                dateRange("merged", "merged", "Merged", "When the pull request was merged.", G_DATES),
+
+                // Stars belong to the repository, and GitHub's issue search has no
+                // qualifier for them: `stars:>1000` in an issue query is parsed as FREE
+                // TEXT and silently returns issues from repos with no stars at all. So
+                // these are applied to the fetched results instead, which requires the
+                // GraphQL path (it can return each issue's repository stargazerCount).
+                postFilterRange("repoStars", "Repository stars",
+                        "Stars on the issue's repository. GitHub's issue search has no stars "
+                                + "qualifier, so matching issues are fetched and then filtered — a "
+                                + "demanding range may match few of the issues scanned.",
+                        G_REPO_FILTER, ">=1000")
         );
 
         return new SearchTypeSpec(
@@ -233,7 +249,8 @@ public class SearchCatalog {
                         new SortSpec("created", "Created"),
                         new SortSpec("updated", "Updated")),
                 true, false, BUCKET_SEARCH, false, false, true,
-                List.of(GROUP_TEXT, GROUP_STATE, GROUP_SCOPE, GROUP_PEOPLE, GROUP_ATTRIBUTES, GROUP_METRICS, GROUP_DATES),
+                List.of(GROUP_TEXT, GROUP_STATE, GROUP_SCOPE, GROUP_PEOPLE, GROUP_ATTRIBUTES,
+                        GROUP_METRICS, GROUP_DATES, GROUP_REPO_FILTER),
                 q);
     }
 
