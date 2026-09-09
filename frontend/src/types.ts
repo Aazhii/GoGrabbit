@@ -119,6 +119,15 @@ export interface SearchQualifier {
   placeholder: string | null;
   negatable: boolean;
   repeatable: boolean;
+  /**
+   * True when the backend applies this qualifier AFTER fetching from GitHub
+   * rather than handing it to GitHub as part of the query — `repoStars` is the
+   * case that exists today, because REST `/search/issues` cannot filter on a
+   * repository's star count at all (`stars:>1000` there is parsed as free
+   * text). Such a filter makes a search scan several pages and can legitimately
+   * return few or no rows; the response's `scan` block reports what happened.
+   */
+  postFilter?: boolean;
 }
 
 export interface SearchQualifierGroup {
@@ -158,6 +167,29 @@ export interface SearchRateLimit {
   resetAt: string;
 }
 
+/**
+ * What a post-filtered search actually did.
+ *
+ * A `repoStars` filter cannot be pushed down into GitHub's query, so the
+ * backend fetches pages of issues and keeps the ones whose repository clears
+ * the threshold. Because freshly created issues overwhelmingly live in small
+ * repositories, examining hundreds of issues and matching a handful — or none
+ * — is a correct outcome, not a failure. These counters are what let the UI
+ * say so instead of looking broken.
+ */
+export interface ScanStats {
+  /** How many issues were fetched and examined. */
+  scannedIssues: number;
+  /** How many GraphQL pages that took. */
+  scannedPages: number;
+  /** How many passed the star filter. */
+  matched: number;
+  /** True when the end of GitHub's reachable window was reached — no more exist. */
+  exhausted: boolean;
+  /** The maximum number of pages this request was allowed to scan. */
+  pageBudget: number;
+}
+
 export interface SearchResponse {
   type: string;
   items: SearchItem[];
@@ -170,6 +202,8 @@ export interface SearchResponse {
   /** The exact `q` string the backend sent to GitHub. */
   query: string;
   rateLimit: SearchRateLimit | null;
+  /** Present ONLY when a star post-filter was applied — see ScanStats. */
+  scan?: ScanStats | null;
 }
 
 export interface SearchRequestParams {

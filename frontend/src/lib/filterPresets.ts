@@ -61,6 +61,29 @@ const BY_SLUG: Record<string, () => FilterPreset[]> = {
       state: value({ text: "open" }),
       type: value({ text: "issue" }),
     }),
+    /**
+     * The whole reason `repoStars` exists: "issues created recently, in
+     * projects with lots of stars". GitHub cannot answer that in one query —
+     * `stars:` inside an issue search is parsed as free text — so `repoStars`
+     * is post-filtered and the search scans several pages to find matches.
+     * Expect a small result set, and read the scan note in the results header.
+     *
+     * `created` uses the relative-window comparator ("in the last N days",
+     * `from` holding the day count) rather than a frozen `daysAgo()` date, so
+     * the preset stays correct however long the tab has been open.
+     */
+    preset(
+      "fresh-in-popular-repos",
+      "Fresh issues in popular repos",
+      'Open issues labelled "good first issue" from the last 30 days, in repositories with at least 1,000 stars. Stars are filtered after fetching, so this scans several pages and returns few rows.',
+      {
+        created: value({ comparator: "within", from: "30" }),
+        repoStars: value({ comparator: "gte", from: "1000" }),
+        label: value({ list: ["good first issue"] }),
+        state: value({ text: "open" }),
+        type: value({ text: "issue" }),
+      },
+    ),
   ],
 
   repositories: () => [

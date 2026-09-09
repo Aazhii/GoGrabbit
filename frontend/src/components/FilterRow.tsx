@@ -93,6 +93,19 @@ export default function FilterRow({
           ))}
         </select>
 
+        {/* A post-filtered qualifier behaves unlike every other row: GitHub
+            never sees it, so it cannot narrow the search — the backend scans
+            pages and drops what does not match. The qualifier's own `help`
+            text carries the explanation; this is just the flag. */}
+        {qualifier.postFilter === true && (
+          <span
+            className="fb-post-badge"
+            title="Applied to the fetched results, not by GitHub — this search scans several pages and can match very few."
+          >
+            after fetch
+          </span>
+        )}
+
         {isRange ? (
           <>
             <label className="sr-only" htmlFor={`${baseId}-op`}>

@@ -98,6 +98,28 @@
   color: var(--text-muted);
 }
 
+/*
+ * Marks a qualifier the backend applies AFTER fetching from GitHub
+ * (`postFilter` in the catalog) — today only the repository star count, which
+ * a GitHub issue query cannot express. Same amber as the results panel's scan
+ * note, which is where the consequences get explained.
+ */
+.fb-post-badge {
+  flex: 0 0 auto;
+  padding: 0 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 999px;
+  cursor: help;
+}
+
 .fb-select-add {
   flex: 0 0 auto;
 }

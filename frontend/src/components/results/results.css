@@ -743,3 +743,78 @@ a.rc-actor:hover {
   border-color: var(--draft-border);
   color: var(--draft);
 }
+
+/* =====================================================================
+   SIGNALS ROW — freshness beside popularity.
+
+   "New issues in projects with lots of stars" is two questions at once, so
+   the star count gets a pill of its own next to the freshness pill rather
+   than a slot in the dense meta row. The gold reads as a star, and it is the
+   same amber family as the scan note below: both mark information that came
+   from somewhere other than GitHub's own query evaluation.
+   ===================================================================== */
+
+.rc-signals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  min-width: 0;
+}
+
+/* The freshness pill keeps `align-self: flex-start` for the card's column
+   layout; inside this row it should sit level with its neighbour instead. */
+.rc-signals > .rc-fresh {
+  align-self: center;
+}
+
+.rc-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: none;
+  padding: 0.12rem 0.6rem 0.12rem 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  color: var(--warning);
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+  border-radius: 999px;
+}
+
+.rc-star-glyph {
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.rc-stars-label {
+  font-size: 0.78rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+/* =====================================================================
+   SCAN NOTE — rendered by SearchResultsPanel, which loads this sheet.
+   The amber block itself is `.warning-note` (index.css); only the
+   two-line structure is added here.
+   ===================================================================== */
+
+.scan-note {
+  line-height: 1.45;
+}
+
+.scan-note strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-note-hint {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.85em;
+  font-weight: 400;
+  opacity: 0.92;
+}

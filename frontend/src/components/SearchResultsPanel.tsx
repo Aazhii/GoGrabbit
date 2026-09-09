@@ -7,7 +7,7 @@ import Spinner from "./Spinner";
 import { ResultCard } from "./results";
 import { formatCount } from "../lib/searchFilters";
 import type { FriendlyError } from "../lib/errors";
-import type { SearchResponse, SearchTypeDescriptor } from "../types";
+import type { ScanStats, SearchResponse, SearchTypeDescriptor } from "../types";
 
 /** GitHub refuses to page past this many results, whatever totalCount says. */
 const PAGING_CEILING = 1000;
@@ -103,6 +103,8 @@ export default function SearchResultsPanel({
         </p>
       )}
 
+      {data?.scan && <ScanNote scan={data.scan} />}
+
       {error && <ErrorNotice error={error} onRetry={onRetry} />}
 
       {loading && <Spinner label={`Searching GitHub ${type.label.toLowerCase()}…`} />}
@@ -117,7 +119,12 @@ export default function SearchResultsPanel({
         </EmptyState>
       )}
 
-      {!loading && !error && !pristine && data && data.items.length === 0 && (
+      {/* A post-filtered search that matched nothing is not an empty search —
+          the scan note above already says what was examined and what to
+          loosen, and stacking "No issues matched" on top of it would read as a
+          failure. So the generic empty state stands down whenever `scan` is
+          present. */}
+      {!loading && !error && !pristine && data && data.items.length === 0 && !data.scan && (
         <EmptyState title={`No ${type.label.toLowerCase()} matched`}>
           <p>Try loosening things:</p>
           <ul>
@@ -154,6 +161,64 @@ export default function SearchResultsPanel({
       )}
     </section>
   );
+}
+
+/**
+ * What a star-filtered search actually did.
+ *
+ * A repository's star count cannot be filtered inside a GitHub issue query at
+ * all, so the backend scans pages of issues and keeps the ones whose repo
+ * clears the threshold. Newly created issues overwhelmingly live in small
+ * repositories, so "hundreds examined, a handful — or none — kept" is the
+ * normal, correct outcome. Every branch below therefore explains the numbers
+ * and names the next move; none of them is phrased as an error, and this is
+ * deliberately the amber informational note rather than the red error style.
+ */
+function ScanNote({ scan }: { scan: ScanStats }) {
+  const budget = count(scan.pageBudget, "page", "pages");
+
+  // Nothing was fetched at all: the star filter never even got a say, so
+  // pointing at the star minimum would send the user the wrong way.
+  if (scan.scannedIssues <= 0) {
+    return (
+      <p className="warning-note scan-note">
+        <strong>Nothing to scan</strong> — GitHub returned no issues at all for this query, so the
+        star filter never came into play.
+        <span className="scan-note-hint">
+          Loosen the other filters first: stars are applied afterwards, to whatever GitHub returns.
+        </span>
+      </p>
+    );
+  }
+
+  return (
+    <p className="warning-note scan-note">
+      <strong>
+        {scan.scannedIssues === 1
+          ? "Scanned the single issue GitHub returned for this query"
+          : `Scanned the first ${scan.scannedIssues.toLocaleString()} issues GitHub returned for this query`}{" "}
+        ({count(scan.scannedPages, "page", "pages")})
+      </strong>
+      {scan.matched === 0
+        ? " — none of them are in repositories that meet your star filter."
+        : scan.matched === 1
+          ? " — 1 is in a repository meeting your star filter."
+          : ` — ${scan.matched.toLocaleString()} are in repositories meeting your star filter.`}
+      <span className="scan-note-hint">
+        {scan.matched === 0
+          ? "That is a real result, not an error: stars are checked after fetching, and newly created issues mostly live in small repositories. "
+          : ""}
+        {scan.exhausted
+          ? `There are no more issues to scan — that was the full window GitHub will return for this query, so a scan budget bigger than ${budget} would not help. Lower the star minimum or widen the date range to match more.`
+          : `More issues exist beyond this request’s scan budget of ${budget}. Narrowing the date range or lowering the star minimum will surface more of them.`}
+      </span>
+    </p>
+  );
+}
+
+/** "1 page" / "5 pages" — thousands-separated, so a 500-issue scan reads right. */
+function count(n: number, one: string, many: string): string {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
 }
 
 /**
