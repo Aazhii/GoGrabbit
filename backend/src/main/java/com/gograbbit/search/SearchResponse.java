@@ -16,6 +16,9 @@ import java.util.Map;
  *                          upstream and this page is partial
  * @param query             the exact {@code q} string sent to GitHub, for debuggability
  * @param rateLimit         parsed from GitHub's response headers; null when it sent none
+ * @param scan              non-null only when a post-filter ran, in which case
+ *                          {@code totalCount} counts matches within the scanned window
+ *                          rather than GitHub's upstream match count
  */
 public record SearchResponse(
         SearchType type,
@@ -27,6 +30,7 @@ public record SearchResponse(
         boolean resultsCapped,
         boolean incompleteResults,
         String query,
-        RateLimitInfo rateLimit
+        RateLimitInfo rateLimit,
+        ScanStats scan
 ) {
 }

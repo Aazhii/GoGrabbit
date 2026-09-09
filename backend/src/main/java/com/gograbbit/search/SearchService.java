@@ -35,17 +35,20 @@ public class SearchService {
     private final SearchQueryBuilder queryBuilder;
     private final SearchResultMapper mapper;
     private final GitHubService gitHubService;
+    private final StarFilteredIssueSearch starFilteredIssueSearch;
     private final boolean githubAuthenticated;
 
     public SearchService(SearchCatalog catalog,
                          SearchQueryBuilder queryBuilder,
                          SearchResultMapper mapper,
                          GitHubService gitHubService,
+                         StarFilteredIssueSearch starFilteredIssueSearch,
                          @Value("${github.token:}") String githubToken) {
         this.catalog = catalog;
         this.queryBuilder = queryBuilder;
         this.mapper = mapper;
         this.gitHubService = gitHubService;
+        this.starFilteredIssueSearch = starFilteredIssueSearch;
         this.githubAuthenticated = githubToken != null && !githubToken.isBlank();
     }
 
@@ -86,6 +89,23 @@ public class SearchService {
                     + " search needs at least one search term — pass 'q'.");
         }
 
+        // `repoStars` is in the catalog but has no GitHub qualifier, so the query
+        // builder deliberately left it out of `q`. It is applied by scanning results
+        // instead, which needs a completely different call path.
+        String repoStars = first(qualifierParams, "repoStars");
+        if (repoStars != null && !repoStars.isBlank()) {
+            NumericRange stars = NumericRange.parse("repoStars", repoStars);
+            StarFilteredIssueSearch.Result filtered =
+                    starFilteredIssueSearch.search(query, sort, order, stars, page, perPage);
+            return new SearchResponse(spec.type(), filtered.items(), filtered.totalCount(),
+                    page, perPage, filtered.hasNextPage(),
+                    // The 1000-result note would be a second, competing explanation of a
+                    // short result set; the scan report already says what was covered.
+                    false, false,
+                    StarFilteredIssueSearch.withSort(query, sort, order),
+                    filtered.rateLimit(), filtered.scan());
+        }
+
         Map<String, String> extraParams = new LinkedHashMap<>();
         if (spec.requiresRepositoryId()) {
             extraParams.put("repository_id", String.valueOf(resolveRepositoryId(allParams)));
@@ -117,7 +137,7 @@ public class SearchService {
                 && consumed + perPage <= SearchQueryBuilder.MAX_REACHABLE_RESULTS;
 
         return new SearchResponse(spec.type(), items, totalCount, page, perPage,
-                hasNextPage, resultsCapped, raw.incompleteResults(), query, raw.rateLimit());
+                hasNextPage, resultsCapped, raw.incompleteResults(), query, raw.rateLimit(), null);
     }
 
     private static boolean wantsIssuesOnly(Map<String, List<String>> qualifierParams) {
