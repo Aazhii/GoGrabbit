@@ -64,6 +64,18 @@ export interface IssueItem {
   owner?: string | null;
   repo?: string | null;
   repositoryFullName?: string | null;
+  /**
+   * The issue's repository stargazer count.
+   *
+   * REST `/search/issues` cannot return (or filter on) repository stars —
+   * `stars:>1000` inside an issue query is silently parsed as FREE TEXT — so
+   * this is only populated when the search went via GraphQL. `null` therefore
+   * means "not known", never "zero": the card must render nothing at all
+   * rather than print a 0 it cannot stand behind.
+   */
+  stars?: number | null;
+  /** The repository's primary language. Same GraphQL-only caveat as `stars`. */
+  language?: string | null;
   labels?: IssueLabelRef[] | null;
   createdAt?: string | null;
   updatedAt?: string | null;

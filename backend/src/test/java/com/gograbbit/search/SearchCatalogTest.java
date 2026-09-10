@@ -98,8 +98,17 @@ class SearchCatalogTest {
                         .as("%s.%s is not a FLAG and must not carry a flagValue", type.slug(), q.key())
                         .isNull();
             }
-            if (!q.isFreeText()) {
-                assertThat(q.githubQualifier()).as("%s.%s", type.slug(), q.key()).isNotBlank();
+            // Exactly two kinds of qualifier legitimately have no GitHub-side name:
+            // free text, and a post-filter GitHub cannot evaluate at all. Everything
+            // else must name one, or it would render into `q` as a bare word.
+            if (q.isFreeText() || q.postFilter()) {
+                assertThat(q.githubQualifier())
+                        .as("%s.%s has no GitHub qualifier, so it must not claim one", type.slug(), q.key())
+                        .isNull();
+            } else {
+                assertThat(q.githubQualifier())
+                        .as("%s.%s must name the GitHub qualifier it renders to", type.slug(), q.key())
+                        .isNotBlank();
             }
         }
     }
@@ -162,10 +171,14 @@ class SearchCatalogTest {
 
     @Test
     void unknownSlugIsRejectedWithTheValidOnesListed() {
+        // Asserted slug by slug rather than as one joined string: the order is
+        // the enum's declaration order, which is a deliberate product choice
+        // (issues first) and may change again.
         assertThatThrownBy(() -> SearchType.fromSlug("repos"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("repos")
-                .hasMessageContaining("repositories, issues, users, code, commits, topics, labels");
+                .hasMessageContainingAll("repositories", "issues", "users", "code",
+                        "commits", "topics", "labels");
     }
 
     @Test

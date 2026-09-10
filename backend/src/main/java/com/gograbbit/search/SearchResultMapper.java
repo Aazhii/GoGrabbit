@@ -118,7 +118,116 @@ public class SearchResultMapper {
         m.put("draft", bool(n, "draft"));
         JsonNode milestone = n.get("milestone");
         m.put("milestone", milestone == null || milestone.isNull() ? null : str(milestone, "title"));
+        // REST issue search carries no repository object, so there is nothing to
+        // report here. The keys are still emitted so both paths have one shape and
+        // the client can treat "no star data" as null rather than as absent.
+        m.put("stars", null);
+        m.put("language", null);
         return m;
+    }
+
+    /**
+     * Maps GraphQL {@code search(type: ISSUE)} nodes onto exactly the same normalized
+     * shape as {@link #issue}, so the client cannot tell which path served it — with
+     * the one difference that {@code stars} and {@code language} are populated, which
+     * is the entire reason the GraphQL path exists.
+     */
+    public List<Map<String, Object>> mapGraphQlIssues(JsonNode nodes) {
+        List<Map<String, Object>> mapped = new ArrayList<>();
+        if (nodes == null || !nodes.isArray()) {
+            return mapped;
+        }
+        for (JsonNode node : nodes) {
+            // A union member we did not spell out in the query comes back as {} —
+            // skip rather than emit an item with every field null.
+            if (node == null || node.isNull() || !node.has("number")) {
+                continue;
+            }
+            mapped.add(graphQlIssue(node));
+        }
+        return mapped;
+    }
+
+    private static Map<String, Object> graphQlIssue(JsonNode n) {
+        JsonNode repository = n.get("repository");
+        String fullName = str(repository, "nameWithOwner");
+        String[] ownerRepo = splitFullName(fullName);
+
+        List<Map<String, Object>> labels = new ArrayList<>();
+        JsonNode labelNodes = n.path("labels").get("nodes");
+        if (labelNodes != null && labelNodes.isArray()) {
+            for (JsonNode l : labelNodes) {
+                Map<String, Object> label = new LinkedHashMap<>();
+                label.put("name", str(l, "name"));
+                label.put("color", str(l, "color"));
+                labels.add(label);
+            }
+        }
+
+        List<Map<String, Object>> assignees = new ArrayList<>();
+        JsonNode assigneeNodes = n.path("assignees").get("nodes");
+        if (assigneeNodes != null && assigneeNodes.isArray()) {
+            for (JsonNode a : assigneeNodes) {
+                Map<String, Object> actor = graphQlActor(a);
+                if (actor != null) {
+                    assignees.add(actor);
+                }
+            }
+        }
+
+        boolean isPullRequest = "PullRequest".equals(str(n, "__typename"));
+
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", num(n, "databaseId"));
+        m.put("number", num(n, "number"));
+        m.put("title", str(n, "title"));
+        m.put("url", str(n, "url"));
+        // GraphQL enums are SCREAMING_CASE (OPEN / NOT_PLANNED); REST is lower case,
+        // and the client switches on these values.
+        m.put("state", lower(str(n, "state")));
+        m.put("stateReason", lower(str(n, "stateReason")));
+        m.put("owner", ownerRepo == null ? null : ownerRepo[0]);
+        m.put("repo", ownerRepo == null ? null : ownerRepo[1]);
+        m.put("repositoryFullName", fullName);
+        m.put("labels", labels);
+        m.put("createdAt", str(n, "createdAt"));
+        m.put("updatedAt", str(n, "updatedAt"));
+        m.put("closedAt", str(n, "closedAt"));
+        m.put("comments", num(n.get("comments"), "totalCount"));
+        m.put("reactions", num(n.get("reactions"), "totalCount"));
+        m.put("author", graphQlActor(n.get("author")));
+        m.put("assignees", assignees);
+        m.put("isPullRequest", isPullRequest);
+        m.put("draft", bool(n, "isDraft"));
+        JsonNode milestone = n.get("milestone");
+        m.put("milestone", milestone == null || milestone.isNull() ? null : str(milestone, "title"));
+        m.put("stars", num(repository, "stargazerCount"));
+        m.put("language", str(repository == null ? null : repository.get("primaryLanguage"), "name"));
+        return m;
+    }
+
+    /** GraphQL actors already use camelCase and a bare {@code url}. */
+    private static Map<String, Object> graphQlActor(JsonNode n) {
+        if (n == null || n.isNull()) {
+            return null;
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("login", str(n, "login"));
+        m.put("avatarUrl", str(n, "avatarUrl"));
+        m.put("url", str(n, "url"));
+        return m;
+    }
+
+    private static String[] splitFullName(String fullName) {
+        if (fullName == null) {
+            return null;
+        }
+        int slash = fullName.indexOf('/');
+        return slash < 0 ? null : new String[]{fullName.substring(0, slash), fullName.substring(slash + 1)};
+    }
+
+    private static String lower(String value) {
+        return value == null ? null : value.toLowerCase(java.util.Locale.ROOT);
     }
 
     private static Map<String, Object> user(JsonNode n) {

@@ -50,6 +50,34 @@ all), labels requires a numeric repository id and takes no qualifiers, code
 search requires authentication and draws on a separate 10/min bucket, and
 an issues query must name `is:issue` or `is:pull-request`.
 
+### Filters GitHub cannot evaluate
+
+A qualifier marked `postFilter` in the catalog is described to the UI but never
+rendered into `q`. `repoStars` is the one that exists today: it filters issues by
+the star count of their repository, which GitHub's issue search cannot do — and,
+worse, does not refuse to do. `stars:>1000` in an issue query is parsed as free
+text and returns issues from repositories with single-digit star counts, 200 OK.
+
+```
+GET /search/issues?...&repoStars=>=1000
+     |
+     +-- SearchQueryBuilder      builds q WITHOUT repoStars
+     |
+     +-- StarFilteredIssueSearch scans pages of 100 until enough matches,
+              |                   budget spent, or window exhausted
+              v
+         GitHubGraphQLService    search(type: ISSUE) { ... repository { stargazerCount } }
+```
+
+It scans because new issues are overwhelmingly opened in small repositories, so a
+single filtered page is almost always empty. `ScanStats` on the response reports
+how many issues were examined, how many matched, and whether anything remains, and
+the UI renders that — an empty result is then an answer, not an apparent bug.
+
+GraphQL is used here and nowhere else. It is authenticated-only, bills the
+`graphql` bucket (5000 points/hour, about one per page) instead of the 30/minute
+`search` bucket, and returns the repository inline. See `docs/DECISIONS.md`.
+
 ### The older issue-only path
 
 `GET /issues/search` still exists and works, but no UI calls it — the
@@ -300,7 +328,7 @@ land (Phase 2) — not before.
 | PATCH  | `/repos/{id}`    | Update labels/interval/active (reschedules Quartz trigger) |
 | DELETE | `/repos/{id}`    | Stop watching a repo (removes trigger)                     |
 | GET    | `/search/catalog` | **Primary.** The search spec: every type, its sorts, groups and qualifiers. The UI builds its filters from this |
-| GET    | `/search/{type}` | **Primary.** Live search against GitHub. `{type}` ∈ `repositories`, `issues`, `users`, `code`, `commits`, `topics`, `labels`. Accepts that type's qualifiers as camelCase params plus `q`, `sort`, `order`, `page`, `perPage`. Stateless |
+| GET    | `/search/{type}` | **Primary.** Live search against GitHub. Passing `repoStars` on `issues` switches to the GraphQL scanning path (see below). `{type}` ∈ `repositories`, `issues`, `users`, `code`, `commits`, `topics`, `labels`. Accepts that type's qualifiers as camelCase params plus `q`, `sort`, `order`, `page`, `perPage`. Stateless |
 | GET    | `/issues/search` | Older issue-only search. Still works; no UI calls it |
 | POST   | `/repos/{id}/poll` | Poll one watched repo now (currently the only way anything polls) |
 | GET    | `/issues/recent` | Issues *already seen by a poll*, from the `seen_issue` table — filterable by `sinceDays`, `owner`, `repo`, `limit`, sorted by `postedAt desc`. Not a GitHub search |

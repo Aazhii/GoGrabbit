@@ -107,6 +107,12 @@ public class SearchQueryBuilder {
             if (cleaned.isEmpty()) {
                 continue;
             }
+            // GitHub has no qualifier for these, and emitting one would be worse than
+            // useless: an unknown word like `repoStars:>=1000` is parsed as free text
+            // and silently changes which issues match. The search service applies them.
+            if (qualifier.postFilter()) {
+                continue;
+            }
             if (!qualifier.repeatable() && cleaned.size() > 1) {
                 throw new IllegalArgumentException(
                         "'" + qualifier.key() + "' may only be supplied once (got " + cleaned.size() + " values).");

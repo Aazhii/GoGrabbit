@@ -195,3 +195,56 @@ current (2026-09) compatibility info, not assumed.
   active filters as individually removable chips.
 - Booleans are tri-state. A checkbox conflates "unset" with "false", which
   would silently send `archived:false` and change the result set.
+
+
+## GraphQL for one thing: issues filtered by repository stars
+
+- This is a deliberate exception to "REST `/search/issues`, not the GraphQL search
+  connection" above, and it is not a change of heart about the rest of the app.
+- **REST cannot answer the question.** `/search/issues` has no `stars:` qualifier,
+  and its items carry a `repository_url` rather than the repository. Worse, GitHub
+  does not reject `stars:>1000` in an issue query — it parses it as free text. The
+  query `label:"good first issue" stars:>1000` returns 200 OK with plausible
+  results whose repositories have 0-347 stars; one match was an issue titled
+  "1000 stars and I'll touch grass". A silent wrong answer is the worst failure
+  mode available, so the qualifier must never be sent.
+- GraphQL returns `repository { stargazerCount }` inline with each issue, so the
+  star count arrives with the result instead of costing a lookup per repository.
+- It is also the better budget. A 100-item GraphQL page costs 1 point of 5000/hour;
+  the equivalent REST page costs one request out of the search bucket's 30/minute,
+  which is the binding constraint on this app. Scanning the entire reachable
+  window costs about 10 points.
+- The cost is a second call path and a second mapper. That is contained: the
+  GraphQL mapper emits exactly the REST shape, `repoStars` is the only trigger, and
+  the other six search types never touch it. GraphQL is authenticated-only, so a
+  deployment without a token gets a 400 explaining that rather than a 403 from
+  GitHub.
+
+## A filter GitHub cannot evaluate is declared, not special-cased
+
+- `QualifierSpec.postFilter` marks a qualifier the query builder must leave out of
+  `q` and the search service applies to the fetched results. It is still published
+  in the catalog, so the generated sidebar renders a control for it with no
+  frontend change.
+- The alternative — a bespoke `minStars` request parameter and a hand-written form
+  field — would have reintroduced exactly the per-filter plumbing the spec-driven
+  catalog exists to avoid.
+- Post-filtered searches **scan**. New issues overwhelmingly live in small
+  repositories (measured: none of the 20 newest good-first-issues had 1000+
+  stars), so filtering one page returns nothing almost every time. Pages are
+  pulled until enough matches accumulate or a budget is reached, and `ScanStats`
+  reports what was covered so a short result set can be explained rather than
+  mistaken for a bug.
+- `totalCount` on a post-filtered search counts matches found, not GitHub's
+  upstream match count. Reporting the latter would claim thousands of results and
+  then show three.
+
+## Free text is identified by its key, not by a missing qualifier
+
+- `isFreeText()` used to mean "has no GitHub qualifier". Post-filters have no
+  GitHub qualifier either, so the two were indistinguishable and `repoStars` was
+  treated as the search box: dropped from the sidebar and silently discarded, with
+  the search still succeeding and quietly ignoring the star bound.
+- Both sides now key on `q`. The catalog test asserts that exactly two kinds of
+  qualifier may omit a GitHub-side name — free text and post-filters — and that
+  everything else names one.

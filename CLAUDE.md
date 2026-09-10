@@ -45,6 +45,29 @@ Phase 2 in the roadmap says so.
   - Request params are **camelCase** (`goodFirstIssues`, `isFeatured`) and
     map to GitHub's hyphenated qualifiers (`good-first-issues:`,
     `is:featured`) via `QualifierSpec.githubQualifier`.
+- **Repository stars on an issue search are a post-filter, over GraphQL.**
+  `repoStars` (a NUMBER_RANGE on ISSUES, `postFilter: true`) filters issues by the
+  star count of their repository. GitHub cannot do this:
+  - `/search/issues` has no `stars:` qualifier and **does not reject one** — it is
+    parsed as FREE TEXT, so `stars:>1000` returns 200 OK with issues from repos
+    that have single-digit stars. Never send it. `SearchQueryBuilder` skips every
+    `postFilter` qualifier for exactly this reason.
+  - So a `repoStars` range routes through `GitHubGraphQLService`
+    (`search(type: ISSUE)` returns `repository { stargazerCount }` inline) and
+    `StarFilteredIssueSearch` filters the results. Everything else stays on REST.
+  - It **scans**: new issues mostly live in small repos, so one page filtered on
+    stars is usually empty. Pages of 100 are pulled up to
+    `github.graphql.issue-scan-page-budget` (default 5, max 10 — 10 is GitHub's
+    whole reachable window) and `ScanStats` reports what was covered. The UI
+    renders that, so an empty result reads as an answer rather than a bug.
+  - `totalCount` on such a search is matches found, NOT GitHub's upstream count.
+  - GraphQL is **authenticated-only** and bills the `graphql` bucket (5000
+    points/hr, ~1 per page) rather than the 30/min `search` bucket. Without a token
+    the request 400s with an explanation instead of GitHub 403ing.
+- **`isFreeText()` keys on the `q` key, not on a null `githubQualifier`.** Post-filters
+  have no GitHub-side name either; conflating them silently dropped `repoStars`
+  from the sidebar. Both backend and frontend key on `q`, and a catalog test
+  asserts only free text and post-filters may omit a GitHub qualifier.
 - The older single-purpose `GET /issues/search` still exists and works, but
   nothing in the UI calls it any more — the Search tab goes through
   `/search/issues`. Retiring it is a separate decision.
@@ -137,7 +160,8 @@ Phase 2 in the roadmap says so.
 ```bash
 cd backend
 ./mvnw compile        # verified working — Java 25 + Spring Boot 4.1
-./mvnw test            # needs a reachable Postgres matching db/migration — see below
+./mvnw test            # see the Postgres caveat below — the unit tests pass, the
+                       # one @SpringBootTest needs a database
 ```
 
 `spring-boot-starter-parent` in `pom.xml` must be a real published version,
@@ -154,8 +178,24 @@ docker compose up --build
 ```
 
 - Dashboard: http://localhost:3000
-- API: http://localhost:8080 — try `POST /repos` then `POST /repos/{id}/poll`
-- Health: http://localhost:8080/actuator/health
+- API: `http://localhost:${BACKEND_HOST_PORT:-8080}` — try `GET /search/catalog`,
+  then `GET /search/issues?label=good+first+issue&repoStars=>=1000`
+- Health: `http://localhost:${BACKEND_HOST_PORT:-8080}/actuator/health`
+
+`BACKEND_HOST_PORT` exists for the same reason as `POSTGRES_HOST_PORT`: this machine
+has an unrelated local app on 8080 (and another wanting TLS on 8081), and requests to
+8080 were being answered by it rather than the backend — which made the dashboard
+look broken while the container was perfectly healthy. `.env` sets 18080 here.
+`VITE_API_BASE_URL` must match, and is baked in at BUILD time, so changing the port
+means rebuilding the frontend image, not just restarting it.
+
+`./mvnw test` currently FAILS on `GoGrabbitApplicationTests.contextLoads` even with
+`docker compose up`: the test datasource defaults to `localhost:5432` while compose
+publishes Postgres on **5433**, so it reaches whatever else is on 5432 and reports
+`role "gograbbit" does not exist`. Every other test is a pure unit test and passes.
+Run a filtered suite (`./mvnw test -Dtest='Search*Test,GitHub*Test,NumericRangeTest'`)
+or point `DATABASE_URL` at 5433. Testcontainers would fix this properly and is the
+documented target in ARCHITECTURE.md.
 
 Postgres publishes on host port 5433, not 5432 — set via `POSTGRES_HOST_PORT`
 in `docker-compose.yml`; changed because this machine already had an
